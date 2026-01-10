@@ -1,5 +1,8 @@
 # wt - Git Worktree Manager
 
+[![CI](https://github.com/agarcher/worktree/actions/workflows/ci.yml/badge.svg)](https://github.com/agarcher/worktree/actions/workflows/ci.yml)
+[![Release](https://github.com/agarcher/worktree/actions/workflows/release.yml/badge.svg)](https://github.com/agarcher/worktree/actions/workflows/release.yml)
+
 A cross-platform CLI tool for managing git worktrees with lifecycle hooks.
 
 ## Features
@@ -14,8 +17,8 @@ A cross-platform CLI tool for managing git worktrees with lifecycle hooks.
 ### From Source
 
 ```bash
-git clone https://github.com/agarcher/wt.git
-cd wt
+git clone https://github.com/agarcher/worktree.git
+cd worktree
 make build
 make install  # Installs to /usr/local/bin
 ```
@@ -23,8 +26,12 @@ make install  # Installs to /usr/local/bin
 ### Homebrew (coming soon)
 
 ```bash
-brew install agarcher/tap/wt
+brew install agarcher/tap/worktree
 ```
+
+### Download Binary
+
+Download the latest release from the [releases page](https://github.com/agarcher/worktree/releases).
 
 ## Shell Integration
 
@@ -177,6 +184,49 @@ Managing multiple parallel development streams (especially when working with LLM
 4. **Clean teardown**: Ensure nothing is lost before deletion
 
 `wt` provides all of this with a simple, consistent interface.
+
+## Development
+
+### Building
+
+```bash
+# Build for current platform
+go build -o wt ./cmd/wt
+
+# Build for all platforms
+GOOS=darwin GOARCH=amd64 go build -o wt-darwin-amd64 ./cmd/wt
+GOOS=darwin GOARCH=arm64 go build -o wt-darwin-arm64 ./cmd/wt
+GOOS=linux GOARCH=amd64 go build -o wt-linux-amd64 ./cmd/wt
+GOOS=linux GOARCH=arm64 go build -o wt-linux-arm64 ./cmd/wt
+```
+
+### Testing
+
+```bash
+go test -v ./...
+```
+
+### Linting
+
+```bash
+golangci-lint run ./...
+```
+
+### Releasing
+
+Releases are automated via GitHub Actions. To create a new release:
+
+1. Update the version in your code if needed
+2. Create and push a version tag:
+   ```bash
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
+3. The release workflow will automatically:
+   - Run tests
+   - Build binaries for all platforms (darwin/linux, amd64/arm64)
+   - Create a GitHub release with the binaries
+   - Generate SHA256 checksums
 
 ## License
 
