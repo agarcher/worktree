@@ -52,7 +52,7 @@ func runList(cmd *cobra.Command, args []string) error {
 	cwd, _ := os.Getwd()
 	worktreesDir := filepath.Join(repoRoot, cfg.WorktreeDir)
 
-	fmt.Printf("Worktrees in %s:\n\n", repoRoot)
+	cmd.Printf("Worktrees in %s:\n\n", repoRoot)
 
 	for _, wt := range worktrees {
 		// Skip the main worktree
@@ -93,7 +93,7 @@ func runList(cmd *cobra.Command, args []string) error {
 			currentMarker = "* "
 		}
 
-		fmt.Printf("%s%-20s  %-30s%s\n", currentMarker, name, wt.Branch, statusStr)
+		cmd.Printf("%s%-20s  %-30s%s\n", currentMarker, name, wt.Branch, statusStr)
 	}
 
 	// Also list main repo
@@ -102,7 +102,7 @@ func runList(cmd *cobra.Command, args []string) error {
 	if cwd == repoRoot || (!strings.HasPrefix(cwd, worktreesDir) && strings.HasPrefix(cwd, repoRoot)) {
 		currentMarker = "* "
 	}
-	fmt.Printf("\n%s%-20s  %-30s (main repo)\n", currentMarker, ".", mainBranch)
+	cmd.Printf("\n%s%-20s  %-30s (main repo)\n", currentMarker, ".", mainBranch)
 
 	return nil
 }

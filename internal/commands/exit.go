@@ -39,6 +39,6 @@ func runExit(cmd *cobra.Command, args []string) error {
 	}
 
 	// Output the path (shell wrapper will handle the actual cd)
-	fmt.Println(repoRoot)
+	cmd.Println(repoRoot)
 	return nil
 }

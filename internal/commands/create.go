@@ -81,7 +81,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		if !git.BranchExists(repoRoot, createBranch) {
 			return fmt.Errorf("branch %q does not exist", createBranch)
 		}
-		fmt.Printf("Creating worktree %q from branch %q...\n", name, createBranch)
+		cmd.Printf("Creating worktree %q from branch %q...\n", name, createBranch)
 		if err := git.CreateWorktreeFromBranch(repoRoot, worktreePath, createBranch); err != nil {
 			return fmt.Errorf("failed to create worktree: %w", err)
 		}
@@ -90,7 +90,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		if git.BranchExists(repoRoot, branchName) {
 			return fmt.Errorf("branch %q already exists (use --branch to checkout existing branch)", branchName)
 		}
-		fmt.Printf("Creating worktree %q with new branch %q...\n", name, branchName)
+		cmd.Printf("Creating worktree %q with new branch %q...\n", name, branchName)
 		if err := git.CreateWorktree(repoRoot, worktreePath, branchName); err != nil {
 			return fmt.Errorf("failed to create worktree: %w", err)
 		}
@@ -98,14 +98,14 @@ func runCreate(cmd *cobra.Command, args []string) error {
 
 	// Run post-create hooks
 	if err := hooks.RunPostCreate(cfg, env); err != nil {
-		fmt.Printf("Warning: post-create hook failed: %v\n", err)
+		cmd.Printf("Warning: post-create hook failed: %v\n", err)
 		// Don't fail the whole operation for post-create hooks
 	}
 
-	fmt.Printf("Worktree %q created successfully\n", name)
+	cmd.Printf("Worktree %q created successfully\n", name)
 
 	// Output the path on the last line for the shell wrapper to use
-	fmt.Println(worktreePath)
+	cmd.Println(worktreePath)
 
 	return nil
 }

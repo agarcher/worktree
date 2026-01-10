@@ -53,6 +53,6 @@ func runCd(cmd *cobra.Command, args []string) error {
 	}
 
 	// Output the path (shell wrapper will handle the actual cd)
-	fmt.Println(worktreePath)
+	cmd.Println(worktreePath)
 	return nil
 }

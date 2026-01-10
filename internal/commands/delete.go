@@ -106,7 +106,7 @@ func runDelete(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to check for changes: %w", err)
 		}
 		if hasChanges {
-			fmt.Printf("Worktree %q has uncommitted changes.\n", name)
+			cmd.Printf("Worktree %q has uncommitted changes.\n", name)
 			if !confirmAction("Delete anyway?") {
 				return fmt.Errorf("aborted")
 			}
@@ -114,7 +114,7 @@ func runDelete(cmd *cobra.Command, args []string) error {
 
 		hasUnpushed, err := git.HasUnpushedCommits(worktreePath)
 		if err == nil && hasUnpushed {
-			fmt.Printf("Worktree %q has unpushed commits.\n", name)
+			cmd.Printf("Worktree %q has unpushed commits.\n", name)
 			if !confirmAction("Delete anyway?") {
 				return fmt.Errorf("aborted")
 			}
@@ -124,8 +124,8 @@ func runDelete(cmd *cobra.Command, args []string) error {
 	// Warn if user is in the worktree being deleted
 	cwd, _ := os.Getwd()
 	if strings.HasPrefix(cwd, worktreePath) {
-		fmt.Println("Warning: You are currently in this worktree.")
-		fmt.Println("After deletion, run 'wt exit' or 'cd' to another directory.")
+		cmd.Println("Warning: You are currently in this worktree.")
+		cmd.Println("After deletion, run 'wt exit' or 'cd' to another directory.")
 	}
 
 	// Run pre-delete hooks
@@ -133,29 +133,29 @@ func runDelete(cmd *cobra.Command, args []string) error {
 		if !deleteForce {
 			return fmt.Errorf("pre-delete hook failed: %w", err)
 		}
-		fmt.Printf("Warning: pre-delete hook failed: %v\n", err)
+		cmd.Printf("Warning: pre-delete hook failed: %v\n", err)
 	}
 
 	// Delete the worktree
-	fmt.Printf("Deleting worktree %q...\n", name)
+	cmd.Printf("Deleting worktree %q...\n", name)
 	if err := git.RemoveWorktree(repoRoot, worktreePath, deleteForce); err != nil {
 		return fmt.Errorf("failed to delete worktree: %w", err)
 	}
 
 	// Delete the branch if requested
 	if deleteDeleteBranch && branch != "" {
-		fmt.Printf("Deleting branch %q...\n", branch)
+		cmd.Printf("Deleting branch %q...\n", branch)
 		if err := git.DeleteBranch(repoRoot, branch, deleteForce); err != nil {
-			fmt.Printf("Warning: failed to delete branch: %v\n", err)
+			cmd.Printf("Warning: failed to delete branch: %v\n", err)
 		}
 	}
 
 	// Run post-delete hooks
 	if err := hooks.RunPostDelete(cfg, env); err != nil {
-		fmt.Printf("Warning: post-delete hook failed: %v\n", err)
+		cmd.Printf("Warning: post-delete hook failed: %v\n", err)
 	}
 
-	fmt.Printf("Worktree %q deleted successfully\n", name)
+	cmd.Printf("Worktree %q deleted successfully\n", name)
 	return nil
 }
 
