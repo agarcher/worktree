@@ -1,7 +1,7 @@
 # wt - Git Worktree Manager
 
-[![CI](https://github.com/agarcher/worktree/actions/workflows/ci.yml/badge.svg)](https://github.com/agarcher/worktree/actions/workflows/ci.yml)
-[![Release](https://github.com/agarcher/worktree/actions/workflows/release.yml/badge.svg)](https://github.com/agarcher/worktree/actions/workflows/release.yml)
+[![CI](https://github.com/agarcher/wt/actions/workflows/ci.yml/badge.svg)](https://github.com/agarcher/wt/actions/workflows/ci.yml)
+[![Release](https://github.com/agarcher/wt/actions/workflows/release.yml/badge.svg)](https://github.com/agarcher/wt/actions/workflows/release.yml)
 
 A cross-platform CLI tool for managing git worktrees with lifecycle hooks.
 
@@ -23,21 +23,21 @@ A cross-platform CLI tool for managing git worktrees with lifecycle hooks.
 ### From Source
 
 ```bash
-git clone https://github.com/agarcher/worktree.git
-cd worktree
+git clone https://github.com/agarcher/wt.git
+cd wt
 make build
 make install  # Installs to /usr/local/bin
 ```
 
-### Homebrew (coming soon)
+### Homebrew (macOS/Linux)
 
 ```bash
-brew install agarcher/tap/worktree
+brew install agarcher/tap/wt
 ```
 
 ### Download Binary
 
-Download the latest release from the [releases page](https://github.com/agarcher/worktree/releases).
+Download the latest release from the [releases page](https://github.com/agarcher/wt/releases).
 
 ## Shell Integration
 
@@ -262,19 +262,15 @@ make lint
 
 ### Releasing
 
-Releases are automated via GitHub Actions. To create a new release:
+Version is tracked in `VERSION` file. To release:
 
-1. Update the version in your code if needed
-2. Create and push a version tag:
-   ```bash
-   git tag v1.0.0
-   git push origin v1.0.0
-   ```
-3. The release workflow will automatically:
-   - Run tests
-   - Build binaries for all platforms (darwin/linux, amd64/arm64)
-   - Create a GitHub release with the binaries
-   - Generate SHA256 checksums
+```bash
+make release patch "Fix bug in cleanup"
+make release minor "Add new feature"
+make release major "Breaking change"
+```
+
+This bumps `VERSION`, commits, tags, and pushes. GitHub Actions then builds binaries and updates the Homebrew tap.
 
 ## License
 
