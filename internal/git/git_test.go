@@ -723,40 +723,40 @@ func TestMatchesBranchName(t *testing.T) {
 		branchName string
 		want       bool
 	}{
-		// GitHub PR format tests
+		// GitHub PR format tests (using --pretty=%s format, no SHA prefix)
 		{
 			name:       "GitHub PR format - simple branch",
-			line:       "abc1234 Merge pull request #123 from owner/my-feature",
+			line:       "Merge pull request #123 from owner/my-feature",
 			branchName: "my-feature",
 			want:       true,
 		},
 		{
 			name:       "GitHub PR format - branch with slashes",
-			line:       "abc1234 Merge pull request #123 from owner/feature/cleanup",
+			line:       "Merge pull request #123 from owner/feature/cleanup",
 			branchName: "feature/cleanup",
 			want:       true,
 		},
 		{
 			name:       "GitHub PR format - partial match should fail",
-			line:       "abc1234 Merge pull request #123 from owner/cleanup-output",
+			line:       "Merge pull request #123 from owner/cleanup-output",
 			branchName: "cleanup",
 			want:       false,
 		},
 		{
 			name:       "GitHub PR format - similar prefix should fail",
-			line:       "abc1234 Merge pull request #123 from owner/cleanup-output-2",
+			line:       "Merge pull request #123 from owner/cleanup-output-2",
 			branchName: "cleanup-output",
 			want:       false,
 		},
 		{
 			name:       "GitHub PR format - with trailing text",
-			line:       "abc1234 Merge pull request #123 from owner/my-feature into main",
+			line:       "Merge pull request #123 from owner/my-feature into main",
 			branchName: "my-feature",
 			want:       true,
 		},
 		{
 			name:       "GitHub PR format - branch with slashes and trailing text",
-			line:       "abc1234 Merge pull request #123 from owner/feature/my-branch into develop",
+			line:       "Merge pull request #123 from owner/feature/my-branch into develop",
 			branchName: "feature/my-branch",
 			want:       true,
 		},
@@ -764,7 +764,7 @@ func TestMatchesBranchName(t *testing.T) {
 		// GitHub PR format - no owner prefix
 		{
 			name:       "GitHub PR format - slash branch without owner prefix",
-			line:       "abc1234 Merge pull request #123 from feature/cleanup",
+			line:       "Merge pull request #123 from feature/cleanup",
 			branchName: "feature/cleanup",
 			want:       true,
 		},
@@ -772,19 +772,19 @@ func TestMatchesBranchName(t *testing.T) {
 		// Git merge format tests
 		{
 			name:       "git merge format - simple branch",
-			line:       "abc1234 Merge branch 'my-feature' into main",
+			line:       "Merge branch 'my-feature' into main",
 			branchName: "my-feature",
 			want:       true,
 		},
 		{
 			name:       "git merge format - branch with slashes",
-			line:       "abc1234 Merge branch 'feature/cleanup' into main",
+			line:       "Merge branch 'feature/cleanup' into main",
 			branchName: "feature/cleanup",
 			want:       true,
 		},
 		{
 			name:       "git merge format - partial match should fail",
-			line:       "abc1234 Merge branch 'cleanup-output' into main",
+			line:       "Merge branch 'cleanup-output' into main",
 			branchName: "cleanup",
 			want:       false,
 		},
@@ -792,13 +792,13 @@ func TestMatchesBranchName(t *testing.T) {
 		// Edge cases
 		{
 			name:       "no match - different branch",
-			line:       "abc1234 Merge pull request #123 from owner/other-branch",
+			line:       "Merge pull request #123 from owner/other-branch",
 			branchName: "my-feature",
 			want:       false,
 		},
 		{
 			name:       "no match - branch name in commit message but not in expected format",
-			line:       "abc1234 Fixed bug in my-feature module",
+			line:       "Fixed bug in my-feature module",
 			branchName: "my-feature",
 			want:       false,
 		},
@@ -821,34 +821,35 @@ func TestPRNumberRegex(t *testing.T) {
 		wantPR  string
 		wantNil bool
 	}{
+		// Tests use --pretty=%s format (no SHA prefix)
 		{
 			name:   "standard GitHub merge commit",
-			line:   "abc1234 Merge pull request #123 from owner/branch",
+			line:   "Merge pull request #123 from owner/branch",
 			wantPR: "123",
 		},
 		{
 			name:   "case insensitive - Pull Request",
-			line:   "abc1234 Merge Pull Request #456 from owner/branch",
+			line:   "Merge Pull Request #456 from owner/branch",
 			wantPR: "456",
 		},
 		{
 			name:   "case insensitive - PULL REQUEST",
-			line:   "abc1234 Merge PULL REQUEST #789 from owner/branch",
+			line:   "Merge PULL REQUEST #789 from owner/branch",
 			wantPR: "789",
 		},
 		{
 			name:    "issue number should not match",
-			line:    "abc1234 Fixes #123 in the codebase",
+			line:    "Fixes #123 in the codebase",
 			wantNil: true,
 		},
 		{
 			name:    "random hash number should not match",
-			line:    "abc1234 Updated version to #123",
+			line:    "Updated version to #123",
 			wantNil: true,
 		},
 		{
 			name:    "git merge format without PR",
-			line:    "abc1234 Merge branch 'feature' into main",
+			line:    "Merge branch 'feature' into main",
 			wantNil: true,
 		},
 	}

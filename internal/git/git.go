@@ -319,7 +319,8 @@ var prNumberRegex = regexp.MustCompile(`(?i)pull request #(\d+)`)
 func GetMergePRs(repoRoot, branchName, mainBranch string) []string {
 	// Search last 100 merge commits on main branch for mentions of this branch
 	// GitHub merge commit format: "Merge pull request #123 from owner/branch-name"
-	cmd := exec.Command("git", "log", mainBranch, "--merges", "-n", "100", "--oneline")
+	// Use --pretty=%s to get just the subject line without SHA prefix
+	cmd := exec.Command("git", "log", mainBranch, "--merges", "-n", "100", "--pretty=%s")
 	cmd.Dir = repoRoot
 
 	output, err := cmd.Output()
@@ -335,8 +336,8 @@ func GetMergePRs(repoRoot, branchName, mainBranch string) []string {
 		line := scanner.Text()
 		// Check if this merge commit mentions our branch exactly
 		// Typical formats:
-		//   "abc1234 Merge pull request #123 from owner/branch-name"
-		//   "abc1234 Merge branch 'branch-name' into main"
+		//   "Merge pull request #123 from owner/branch-name"
+		//   "Merge branch 'branch-name' into main"
 		if !matchesBranchName(line, branchName) {
 			continue
 		}
@@ -352,6 +353,9 @@ func GetMergePRs(repoRoot, branchName, mainBranch string) []string {
 		}
 	}
 
+	if scanner.Err() != nil {
+		return prs // best-effort on scan error
+	}
 	return prs
 }
 
