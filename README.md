@@ -9,8 +9,14 @@ A cross-platform CLI tool for managing git worktrees with lifecycle hooks.
 
 - **Simple worktree management**: Create, delete, and list worktrees with ease
 - **Shell integration**: Automatically `cd` into new worktrees
+- **Tab completion**: Complete commands, worktree names, and branches
 - **Lifecycle hooks**: Run custom scripts on worktree creation and deletion
 - **Non-intrusive**: Only activates in repositories with `.wt.yaml` config
+
+## Requirements
+
+- **Git 2.5+** for basic functionality (worktree support)
+- **Git 2.13+** recommended for optimal branch name completion (older versions fall back gracefully)
 
 ## Installation
 

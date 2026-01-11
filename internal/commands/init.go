@@ -28,7 +28,8 @@ Add the following to your shell configuration file:
 
   For fish (~/.config/fish/config.fish):
     wt init fish | source`,
-	Args: cobra.ExactArgs(1),
+	ValidArgs: []string{"zsh", "bash", "fish"},
+	Args:      cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		shellName := args[0]
 		script, err := shell.Generate(shellName)

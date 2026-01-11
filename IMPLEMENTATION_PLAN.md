@@ -7,7 +7,7 @@ A cross-platform, brew-installable CLI for managing git worktrees with lifecycle
 | Phase | Status | Notes |
 |-------|--------|-------|
 | Phase 1: Core Binary | ✅ Complete | All commands working |
-| Phase 2: Shell Integration | ⚠️ Partial | Functions done, completions pending |
+| Phase 2: Shell Integration | ✅ Complete | Functions and completions done |
 | Phase 3: Hook System | ✅ Complete | Full lifecycle hooks |
 | Phase 4: Distribution | ⚠️ Partial | CI/CD done, Homebrew tap pending |
 | Phase 5: Documentation | ✅ Complete | README with examples |
@@ -174,7 +174,7 @@ shell: /bin/bash
 
 ---
 
-## Phase 2: Shell Integration ⚠️
+## Phase 2: Shell Integration ✅
 
 ### 2.1 Shell Function Generator ✅
 
@@ -227,17 +227,21 @@ wt() {
 }
 ```
 
-### 2.2 Shell Completions ❌ Not implemented
+### 2.2 Shell Completions ✅
 
 Generate completions for:
 - zsh (place in `_wt`)
 - bash (place in `wt.bash`)
 - fish (place in `wt.fish`)
 
-Completions should:
+Completions include:
 - Complete subcommands
 - Complete worktree names for `cd`, `delete`
+- Complete shell types for `init`
+- Complete branch names for `create --branch`
 - Complete options/flags
+
+Use `wt completion <shell>` to generate completion scripts.
 
 ---
 
@@ -383,7 +387,7 @@ Provide starter configs for common use cases:
 5. ✅ **Hook system** - execution engine, environment variables
 6. ✅ **List command** - with status info (uncommitted, unpushed)
 7. ✅ **Cleanup command** - smart worktree cleanup
-8. ❌ **Completions** - shell completions generation
+8. ✅ **Completions** - shell completions generation
 9. ✅ **Build/release** - Makefile, GitHub Actions CI/CD
 10. ❌ **Homebrew formula** - tap setup, formula
 11. ✅ **Documentation** - README, examples
