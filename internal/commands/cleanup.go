@@ -146,8 +146,23 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 	out := cmd.OutOrStdout()
 	_, _ = fmt.Fprintln(out, "Worktrees eligible for cleanup:")
 	_, _ = fmt.Fprintln(out)
+
+	// Calculate column widths based on content
+	nameWidth := len("NAME")
+	branchWidth := len("BRANCH")
 	for _, c := range candidates {
-		_, _ = fmt.Fprintf(out, "  %-20s  %-30s  (%s)\n", c.name, c.branch, c.reason)
+		if len(c.name) > nameWidth {
+			nameWidth = len(c.name)
+		}
+		if len(c.branch) > branchWidth {
+			branchWidth = len(c.branch)
+		}
+	}
+
+	// Print header and rows with dynamic widths
+	_, _ = fmt.Fprintf(out, "  %-*s  %-*s  %s\n", nameWidth, "NAME", branchWidth, "BRANCH", "STATUS")
+	for _, c := range candidates {
+		_, _ = fmt.Fprintf(out, "  %-*s  %-*s  [%s]\n", nameWidth, c.name, branchWidth, c.branch, c.reason)
 	}
 	_, _ = fmt.Fprintln(out)
 
