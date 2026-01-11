@@ -92,12 +92,13 @@ jobs:
     if: ${{ !contains(github.ref, '-rc') && !contains(github.ref, '-beta') && !contains(github.ref, '-alpha') }}
 
     steps:
-      - name: Checkout tap repository
-        uses: actions/checkout@v4
+      - name: Set up SSH key
+        uses: webfactory/ssh-agent@v0.9.0
         with:
-          repository: agarcher/homebrew-tap
-          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          path: homebrew-tap
+          ssh-private-key: ${{ secrets.TAP_DEPLOY_KEY }}
+
+      - name: Clone tap repository
+        run: git clone git@github.com:agarcher/homebrew-tap.git homebrew-tap
 
       - name: Update formula
         env:

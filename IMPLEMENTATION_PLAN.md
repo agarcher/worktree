@@ -313,7 +313,9 @@ release:         # Create release artifacts
 
 1. Create tap repository: `github.com/agarcher/homebrew-tap`
 2. Create `Formula/` directory in the tap repo
-3. Add `HOMEBREW_TAP_TOKEN` secret to the main repo (GitHub PAT with repo access to tap)
+3. Generate deploy key: `ssh-keygen -t ed25519 -C "github-actions" -f wt-tap-deploy -N ""`
+4. Add public key to `homebrew-tap` → Settings → Deploy keys (enable write access)
+5. Add private key as `TAP_DEPLOY_KEY` secret in the main repo
 
 **Installation:**
 ```bash
