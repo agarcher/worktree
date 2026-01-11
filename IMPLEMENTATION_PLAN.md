@@ -526,5 +526,5 @@ echo "Configured ports with offset $PORT_OFFSET"
 ## Open Questions
 
 1. **Command name:** `wt` is short but common. Alternatives: `grove`, `gw`, `worktree`
-2. **Branch cleanup:** Should `wt delete` also delete the branch by default?
+2. ~~**Branch cleanup:** Should `wt delete` also delete the branch by default?~~ **Resolved:** Yes, both `wt delete` and `wt cleanup` delete the branch by default. Use `--keep-branch` to preserve it.
 3. **Remote tracking:** Should `wt create` automatically push and track remote branch?

@@ -76,7 +76,10 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 	worktreesDir := filepath.Join(repoRoot, cfg.WorktreeDir)
 
 	// Get merged branches cache for efficiency
-	mergedCache, _ := git.GetMergedBranches(repoRoot, defaultBranch)
+	mergedCache, err := git.GetMergedBranches(repoRoot, defaultBranch)
+	if err != nil {
+		cmd.Printf("Warning: could not get merged branches: %v\n", err)
+	}
 
 	// Find candidates for cleanup
 	var candidates []cleanupCandidate

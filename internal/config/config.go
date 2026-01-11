@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -129,16 +130,20 @@ func GetMainRepoRoot() (string, error) {
 
 		// Parse the gitdir path
 		content := string(data)
-		if len(content) < 8 || content[:8] != "gitdir: " {
+		if len(content) <= 8 || content[:8] != "gitdir: " {
 			repoRoot = dir // fallback to current dir
 		} else {
-			gitdir := content[8:]
-			gitdir = filepath.Clean(gitdir[:len(gitdir)-1]) // remove trailing newline
+			gitdir := strings.TrimSpace(content[8:])
+			if gitdir == "" {
+				repoRoot = dir // fallback to current dir
+			} else {
+				gitdir = filepath.Clean(gitdir)
 
-			// Navigate up from .git/worktrees/name to the main repo
-			// gitdir is like: /path/to/main/.git/worktrees/name
-			mainGitDir := filepath.Dir(filepath.Dir(gitdir))
-			repoRoot = filepath.Dir(mainGitDir)
+				// Navigate up from .git/worktrees/name to the main repo
+				// gitdir is like: /path/to/main/.git/worktrees/name
+				mainGitDir := filepath.Dir(filepath.Dir(gitdir))
+				repoRoot = filepath.Dir(mainGitDir)
+			}
 		}
 	}
 
