@@ -178,10 +178,24 @@ func formatCompactStatus(status *git.WorktreeStatus) string {
 // printCompactWorktrees prints worktrees in compact table format
 func printCompactWorktrees(cmd *cobra.Command, worktrees []worktreeInfo) {
 	out := cmd.OutOrStdout()
-	_, _ = fmt.Fprintf(out, "  %-20s  %-30s %s\n", "NAME", "BRANCH", "STATUS")
+
+	// Calculate column widths based on content
+	nameWidth := len("NAME")
+	branchWidth := len("BRANCH")
+	for _, wt := range worktrees {
+		if len(wt.name) > nameWidth {
+			nameWidth = len(wt.name)
+		}
+		if len(wt.branch) > branchWidth {
+			branchWidth = len(wt.branch)
+		}
+	}
+
+	// Print header and rows with dynamic widths
+	_, _ = fmt.Fprintf(out, "  %-*s  %-*s  %s\n", nameWidth, "NAME", branchWidth, "BRANCH", "STATUS")
 	for _, wt := range worktrees {
 		statusStr := formatCompactStatus(wt.status)
-		_, _ = fmt.Fprintf(out, "%s%-20s  %-30s %s\n", wt.currentMarker, wt.name, wt.branch, statusStr)
+		_, _ = fmt.Fprintf(out, "%s%-*s  %-*s  %s\n", wt.currentMarker, nameWidth, wt.name, branchWidth, wt.branch, statusStr)
 	}
 }
 
