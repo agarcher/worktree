@@ -235,7 +235,8 @@ type WorktreeStatus struct {
 	CommitsAhead          int
 	CommitsBehind         int
 	IsMerged              bool
-	IsNew                 bool // true if still on the initial commit (no new commits yet)
+	MergedPRs             []string // PR numbers found in merge commits (e.g., ["#1", "#2"])
+	IsNew                 bool     // true if still on the initial commit (no new commits yet)
 	CreatedAt             time.Time
 }
 
@@ -306,6 +307,82 @@ func IsBranchMerged(repoRoot, branchName, mainBranch string) (bool, error) {
 		return false, err
 	}
 	return merged[branchName], nil
+}
+
+// GetMergePRs finds PR numbers from merge commits that reference the given branch.
+// It searches recent merge commits on the main branch for GitHub-style merge commit messages.
+// Returns PR numbers like ["#1", "#2"] or nil if none found.
+func GetMergePRs(repoRoot, branchName, mainBranch string) []string {
+	// Search last 100 merge commits on main branch for mentions of this branch
+	// GitHub merge commit format: "Merge pull request #123 from owner/branch-name"
+	cmd := exec.Command("git", "log", mainBranch, "--merges", "-n", "100", "--oneline")
+	cmd.Dir = repoRoot
+
+	output, err := cmd.Output()
+	if err != nil {
+		return nil
+	}
+
+	var prs []string
+	seen := make(map[string]bool)
+
+	scanner := bufio.NewScanner(bytes.NewReader(output))
+	for scanner.Scan() {
+		line := scanner.Text()
+		// Check if this merge commit mentions our branch exactly
+		// Typical formats:
+		//   "abc1234 Merge pull request #123 from owner/branch-name"
+		//   "abc1234 Merge branch 'branch-name' into main"
+		if !matchesBranchName(line, branchName) {
+			continue
+		}
+
+		// Extract PR number if present (GitHub format)
+		// Look for "#" followed by digits
+		for i := 0; i < len(line); i++ {
+			if line[i] == '#' && i+1 < len(line) {
+				// Extract digits following #
+				j := i + 1
+				for j < len(line) && line[j] >= '0' && line[j] <= '9' {
+					j++
+				}
+				if j > i+1 {
+					pr := line[i:j]
+					if !seen[pr] {
+						seen[pr] = true
+						prs = append(prs, pr)
+					}
+				}
+			}
+		}
+	}
+
+	return prs
+}
+
+// matchesBranchName checks if a merge commit message references the exact branch name.
+// It handles GitHub format "from owner/branch-name" and git format "'branch-name'".
+func matchesBranchName(line, branchName string) bool {
+	// Check for GitHub PR format: "from owner/branch-name" or "from branch-name"
+	// The branch name should be at the end of the line or followed by whitespace
+	fromIdx := strings.Index(line, "from ")
+	if fromIdx != -1 {
+		afterFrom := line[fromIdx+5:]
+		// Handle "owner/branch" format - get the part after the last slash
+		if slashIdx := strings.LastIndex(afterFrom, "/"); slashIdx != -1 {
+			afterFrom = afterFrom[slashIdx+1:]
+		}
+		// Check if it matches exactly (possibly with trailing whitespace)
+		afterFrom = strings.TrimSpace(afterFrom)
+		if afterFrom == branchName {
+			return true
+		}
+	}
+
+	// Check for git merge format: "Merge branch 'branch-name'"
+	// Look for the branch name in single quotes
+	pattern := "'" + branchName + "'"
+	return strings.Contains(line, pattern)
 }
 
 // SetWorktreeCreatedAt stores the creation timestamp in the worktree's git config
@@ -407,6 +484,11 @@ func GetWorktreeStatus(repoRoot, worktreePath, worktreeName, branchName, mainBra
 	} else {
 		merged, _ := IsBranchMerged(repoRoot, branchName, mainBranch)
 		status.IsMerged = merged
+	}
+
+	// If merged, find associated PR numbers from merge commits
+	if status.IsMerged {
+		status.MergedPRs = GetMergePRs(repoRoot, branchName, mainBranch)
 	}
 
 	// Check if still on initial commit (new worktree with no changes committed)
