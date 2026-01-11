@@ -35,7 +35,7 @@ _wt() {
       ;;
     args)
       case $words[2] in
-        cd|delete)
+        cd)
           # Complete worktree names
           local repo_root worktree_dir worktrees
           repo_root=$(git rev-parse --show-toplevel 2>/dev/null)
@@ -57,13 +57,42 @@ _wt() {
             fi
           fi
           ;;
+        delete)
+          _arguments \
+            '1: :->worktree' \
+            '-f[Force deletion]' \
+            '--force[Force deletion]' \
+            '-k[Keep the associated branch]' \
+            '--keep-branch[Keep the associated branch]'
+          if [[ $state == worktree ]]; then
+            local repo_root worktree_dir worktrees
+            repo_root=$(git rev-parse --show-toplevel 2>/dev/null)
+            if [[ -n "$repo_root" ]]; then
+              if [[ -f "$repo_root/.git" ]]; then
+                local gitdir=$(grep "^gitdir:" "$repo_root/.git" | cut -d' ' -f2)
+                if [[ -n "$gitdir" ]]; then
+                  repo_root=$(dirname $(dirname $(dirname "$gitdir")))
+                fi
+              fi
+              if [[ -f "$repo_root/.wt.yaml" ]]; then
+                worktree_dir=$(grep "^worktree_dir:" "$repo_root/.wt.yaml" | cut -d' ' -f2 | tr -d '"' | tr -d "'")
+                [[ -z "$worktree_dir" ]] && worktree_dir="worktrees"
+                if [[ -d "$repo_root/$worktree_dir" ]]; then
+                  worktrees=(${(f)"$(ls -1 "$repo_root/$worktree_dir" 2>/dev/null)"})
+                  _describe 'worktree' worktrees
+                fi
+              fi
+            fi
+          fi
+          ;;
         create)
           _arguments \
             '-b[Use existing branch]:branch:->branches' \
             '--branch[Use existing branch]:branch:->branches'
           if [[ $state == branches ]]; then
             local branches
-            branches=(${(f)"$(git branch --format='%(refname:short)' 2>/dev/null)"})
+            # Try --format first (Git 2.13+), fall back to parsing git branch output
+            branches=(${(f)"$(git branch --format='%(refname:short)' 2>/dev/null || git branch 2>/dev/null | sed 's/^[* ] //')"})
             _describe 'branch' branches
           fi
           ;;
@@ -71,15 +100,12 @@ _wt() {
           local shells=(zsh bash fish)
           _describe 'shell' shells
           ;;
-        delete|cleanup)
+        cleanup)
           _arguments \
             '-f[Force deletion]' \
             '--force[Force deletion]' \
             '-k[Keep the associated branch]' \
-            '--keep-branch[Keep the associated branch]'
-          ;;
-        cleanup)
-          _arguments \
+            '--keep-branch[Keep the associated branch]' \
             '-n[Dry run - show what would be deleted]' \
             '--dry-run[Dry run - show what would be deleted]'
           ;;
@@ -211,7 +237,7 @@ _wt_completions() {
 
   local cmd="${COMP_WORDS[1]}"
   case "$cmd" in
-    cd|delete)
+    cd)
       # Complete worktree names
       local repo_root worktree_dir worktrees
       repo_root=$(git rev-parse --show-toplevel 2>/dev/null)
@@ -232,10 +258,38 @@ _wt_completions() {
         fi
       fi
       ;;
+    delete)
+      # Complete worktree names and flags
+      local repo_root worktree_dir worktrees
+      repo_root=$(git rev-parse --show-toplevel 2>/dev/null)
+      if [[ -n "$repo_root" ]]; then
+        if [[ -f "$repo_root/.git" ]]; then
+          local gitdir=$(grep "^gitdir:" "$repo_root/.git" | cut -d' ' -f2)
+          if [[ -n "$gitdir" ]]; then
+            repo_root=$(dirname $(dirname $(dirname "$gitdir")))
+          fi
+        fi
+        if [[ -f "$repo_root/.wt.yaml" ]]; then
+          worktree_dir=$(grep "^worktree_dir:" "$repo_root/.wt.yaml" | cut -d' ' -f2 | tr -d '"' | tr -d "'")
+          [[ -z "$worktree_dir" ]] && worktree_dir="worktrees"
+          if [[ -d "$repo_root/$worktree_dir" ]]; then
+            worktrees=$(ls -1 "$repo_root/$worktree_dir" 2>/dev/null)
+            COMPREPLY=($(compgen -W "$worktrees -f --force -k --keep-branch" -- "$cur"))
+          else
+            COMPREPLY=($(compgen -W "-f --force -k --keep-branch" -- "$cur"))
+          fi
+        else
+          COMPREPLY=($(compgen -W "-f --force -k --keep-branch" -- "$cur"))
+        fi
+      else
+        COMPREPLY=($(compgen -W "-f --force -k --keep-branch" -- "$cur"))
+      fi
+      ;;
     create)
       case "$prev" in
         -b|--branch)
-          local branches=$(git branch --format='%(refname:short)' 2>/dev/null)
+          # Try --format first (Git 2.13+), fall back to parsing git branch output
+          local branches=$(git branch --format='%(refname:short)' 2>/dev/null || git branch 2>/dev/null | sed 's/^[* ] //')
           COMPREPLY=($(compgen -W "$branches" -- "$cur"))
           ;;
         *)
@@ -245,9 +299,6 @@ _wt_completions() {
       ;;
     init|completion)
       COMPREPLY=($(compgen -W "zsh bash fish" -- "$cur"))
-      ;;
-    delete)
-      COMPREPLY=($(compgen -W "-f --force -k --keep-branch" -- "$cur"))
       ;;
     cleanup)
       COMPREPLY=($(compgen -W "-n --dry-run -f --force -k --keep-branch" -- "$cur"))
@@ -395,7 +446,8 @@ end
 complete -c wt -n "__fish_seen_subcommand_from cd delete" -a "(__wt_worktrees)"
 
 # Branch completion for create --branch
-complete -c wt -n "__fish_seen_subcommand_from create" -s b -l branch -d "Use existing branch" -a "(git branch --format='%(refname:short)' 2>/dev/null)"
+# Try --format first (Git 2.13+), fall back to parsing git branch output
+complete -c wt -n "__fish_seen_subcommand_from create" -s b -l branch -d "Use existing branch" -a "(git branch --format='%(refname:short)' 2>/dev/null; or git branch 2>/dev/null | sed 's/^[* ] //')"
 
 # Shell completion for init and completion commands
 complete -c wt -n "__fish_seen_subcommand_from init completion" -a "zsh bash fish"

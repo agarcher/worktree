@@ -56,15 +56,22 @@ func completeBranchNames(cmd *cobra.Command, args []string, toComplete string) (
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	// Get local branches
+	// Get local branches - try --format first (Git 2.13+), fall back to plain git branch
 	output, err := exec.Command("git", "-C", repoRoot, "branch", "--format=%(refname:short)").Output()
 	if err != nil {
-		return nil, cobra.ShellCompDirectiveNoFileComp
+		// Fallback for older Git versions
+		output, err = exec.Command("git", "-C", repoRoot, "branch").Output()
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
 	}
 
 	var branches []string
 	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
 		branch := strings.TrimSpace(line)
+		// Remove leading * or + markers from git branch output
+		branch = strings.TrimPrefix(branch, "* ")
+		branch = strings.TrimPrefix(branch, "+ ")
 		if branch != "" && strings.HasPrefix(branch, toComplete) {
 			branches = append(branches, branch)
 		}
