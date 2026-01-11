@@ -18,6 +18,7 @@ var (
 
 func init() {
 	createCmd.Flags().StringVarP(&createBranch, "branch", "b", "", "Use existing branch instead of creating a new one")
+	_ = createCmd.RegisterFlagCompletionFunc("branch", completeBranchNames)
 	rootCmd.AddCommand(createCmd)
 }
 

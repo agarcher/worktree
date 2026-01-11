@@ -25,8 +25,9 @@ Note: This command requires shell integration. Add this to your
 shell rc file:
 
   eval "$(wt init zsh)"  # or bash/fish`,
-	Args: cobra.ExactArgs(1),
-	RunE: runCd,
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeWorktreeNames,
+	RunE:              runCd,
 }
 
 func runCd(cmd *cobra.Command, args []string) error {

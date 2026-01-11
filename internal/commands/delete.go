@@ -37,8 +37,9 @@ Use --force to override this check.
 
 By default, the associated git branch is also deleted.
 Use --keep-branch to preserve it.`,
-	Args: cobra.MaximumNArgs(1),
-	RunE: runDelete,
+	Args:              cobra.MaximumNArgs(1),
+	ValidArgsFunction: completeWorktreeNames,
+	RunE:              runDelete,
 }
 
 func runDelete(cmd *cobra.Command, args []string) error {
