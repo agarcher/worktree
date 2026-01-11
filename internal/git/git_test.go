@@ -761,6 +761,14 @@ func TestMatchesBranchName(t *testing.T) {
 			want:       true,
 		},
 
+		// GitHub PR format - no owner prefix
+		{
+			name:       "GitHub PR format - slash branch without owner prefix",
+			line:       "abc1234 Merge pull request #123 from feature/cleanup",
+			branchName: "feature/cleanup",
+			want:       true,
+		},
+
 		// Git merge format tests
 		{
 			name:       "git merge format - simple branch",
