@@ -363,8 +363,10 @@ func matchesBranchName(line, branchName string) bool {
 	fromIdx := strings.Index(line, "from ")
 	if fromIdx != -1 {
 		afterFrom := line[fromIdx+5:]
-		// Handle "owner/branch" format - get the part after the last slash
-		if slashIdx := strings.LastIndex(afterFrom, "/"); slashIdx != -1 {
+		// Handle "owner/branch" format - strip only the owner (first segment)
+		// Using Index (first slash) instead of LastIndex preserves slashes in branch names
+		// e.g., "owner/feature/cleanup" -> "feature/cleanup"
+		if slashIdx := strings.Index(afterFrom, "/"); slashIdx != -1 {
 			afterFrom = afterFrom[slashIdx+1:]
 		}
 		// Extract just the first whitespace-delimited token (branch name)
