@@ -1,6 +1,9 @@
 {
   "permissions": {
     "allow": [
+      "Read(**)",
+      "Glob(**)",
+      "Grep(**)",
       "Bash(make build)",
       "Bash(make test)",
       "Bash(make lint)",
