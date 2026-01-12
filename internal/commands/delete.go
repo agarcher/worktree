@@ -101,6 +101,11 @@ func runDelete(cmd *cobra.Command, args []string) error {
 		WorktreeDir: cfg.WorktreeDir,
 	}
 
+	// Get index for hooks (before deletion cleans it up)
+	if idx, err := git.GetWorktreeIndex(repoRoot, name); err == nil {
+		env.Index = idx
+	}
+
 	// Check for uncommitted changes (unless --force)
 	if !deleteForce {
 		hasChanges, err := git.HasUncommittedChanges(worktreePath)

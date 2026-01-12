@@ -871,3 +871,217 @@ func TestPRNumberRegex(t *testing.T) {
 		})
 	}
 }
+
+func TestSetAndGetWorktreeIndex(t *testing.T) {
+	repoRoot, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	// Create a worktree
+	worktreePath := filepath.Join(repoRoot, "worktrees", "test-wt")
+	worktreeName := "test-wt"
+	if err := CreateWorktree(repoRoot, worktreePath, "test-branch"); err != nil {
+		t.Fatalf("failed to create worktree: %v", err)
+	}
+	defer func() { _ = RemoveWorktree(repoRoot, worktreePath, true) }()
+
+	// Initially should return error (no index file)
+	_, err := GetWorktreeIndex(repoRoot, worktreeName)
+	if err == nil {
+		t.Error("expected error for missing index, got nil")
+	}
+
+	// Set index
+	if err := SetWorktreeIndex(repoRoot, worktreeName, 5); err != nil {
+		t.Fatalf("failed to set index: %v", err)
+	}
+
+	// Get it back
+	index, err := GetWorktreeIndex(repoRoot, worktreeName)
+	if err != nil {
+		t.Fatalf("failed to get index: %v", err)
+	}
+	if index != 5 {
+		t.Errorf("expected index 5, got %d", index)
+	}
+
+	// Update index
+	if err := SetWorktreeIndex(repoRoot, worktreeName, 10); err != nil {
+		t.Fatalf("failed to update index: %v", err)
+	}
+
+	index, err = GetWorktreeIndex(repoRoot, worktreeName)
+	if err != nil {
+		t.Fatalf("failed to get updated index: %v", err)
+	}
+	if index != 10 {
+		t.Errorf("expected index 10, got %d", index)
+	}
+}
+
+func TestAllocateIndex(t *testing.T) {
+	repoRoot, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	// First allocation should return 1
+	index, err := AllocateIndex(repoRoot, 0)
+	if err != nil {
+		t.Fatalf("failed to allocate index: %v", err)
+	}
+	if index != 1 {
+		t.Errorf("expected index 1, got %d", index)
+	}
+
+	// Create worktrees and assign indexes
+	worktree1 := filepath.Join(repoRoot, "worktrees", "wt1")
+	if err := CreateWorktree(repoRoot, worktree1, "branch1"); err != nil {
+		t.Fatalf("failed to create worktree: %v", err)
+	}
+	defer func() { _ = RemoveWorktree(repoRoot, worktree1, true) }()
+	_ = SetWorktreeIndex(repoRoot, "wt1", 1)
+
+	worktree2 := filepath.Join(repoRoot, "worktrees", "wt2")
+	if err := CreateWorktree(repoRoot, worktree2, "branch2"); err != nil {
+		t.Fatalf("failed to create worktree: %v", err)
+	}
+	defer func() { _ = RemoveWorktree(repoRoot, worktree2, true) }()
+	_ = SetWorktreeIndex(repoRoot, "wt2", 2)
+
+	// Next allocation should return 3
+	index, err = AllocateIndex(repoRoot, 0)
+	if err != nil {
+		t.Fatalf("failed to allocate index: %v", err)
+	}
+	if index != 3 {
+		t.Errorf("expected index 3, got %d", index)
+	}
+}
+
+func TestAllocateIndexReusesFreedIndex(t *testing.T) {
+	repoRoot, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	// Create 3 worktrees with indexes 1, 2, 3
+	worktree1 := filepath.Join(repoRoot, "worktrees", "wt1")
+	if err := CreateWorktree(repoRoot, worktree1, "branch1"); err != nil {
+		t.Fatalf("failed to create worktree: %v", err)
+	}
+	_ = SetWorktreeIndex(repoRoot, "wt1", 1)
+
+	worktree2 := filepath.Join(repoRoot, "worktrees", "wt2")
+	if err := CreateWorktree(repoRoot, worktree2, "branch2"); err != nil {
+		t.Fatalf("failed to create worktree: %v", err)
+	}
+	_ = SetWorktreeIndex(repoRoot, "wt2", 2)
+
+	worktree3 := filepath.Join(repoRoot, "worktrees", "wt3")
+	if err := CreateWorktree(repoRoot, worktree3, "branch3"); err != nil {
+		t.Fatalf("failed to create worktree: %v", err)
+	}
+	defer func() { _ = RemoveWorktree(repoRoot, worktree3, true) }()
+	_ = SetWorktreeIndex(repoRoot, "wt3", 3)
+
+	// Delete worktree 2 (frees index 2)
+	_ = RemoveWorktree(repoRoot, worktree2, true)
+
+	// Next allocation should reuse index 2
+	index, err := AllocateIndex(repoRoot, 0)
+	if err != nil {
+		t.Fatalf("failed to allocate index: %v", err)
+	}
+	if index != 2 {
+		t.Errorf("expected index 2 (reused), got %d", index)
+	}
+
+	// Delete worktree 1 (frees index 1)
+	_ = RemoveWorktree(repoRoot, worktree1, true)
+
+	// Next allocation should reuse index 1 (lowest available)
+	index, err = AllocateIndex(repoRoot, 0)
+	if err != nil {
+		t.Fatalf("failed to allocate index: %v", err)
+	}
+	if index != 1 {
+		t.Errorf("expected index 1 (lowest available), got %d", index)
+	}
+}
+
+func TestAllocateIndexMaxLimit(t *testing.T) {
+	repoRoot, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	// Create worktrees using all available indexes up to max
+	worktree1 := filepath.Join(repoRoot, "worktrees", "wt1")
+	if err := CreateWorktree(repoRoot, worktree1, "branch1"); err != nil {
+		t.Fatalf("failed to create worktree: %v", err)
+	}
+	defer func() { _ = RemoveWorktree(repoRoot, worktree1, true) }()
+	_ = SetWorktreeIndex(repoRoot, "wt1", 1)
+
+	worktree2 := filepath.Join(repoRoot, "worktrees", "wt2")
+	if err := CreateWorktree(repoRoot, worktree2, "branch2"); err != nil {
+		t.Fatalf("failed to create worktree: %v", err)
+	}
+	defer func() { _ = RemoveWorktree(repoRoot, worktree2, true) }()
+	_ = SetWorktreeIndex(repoRoot, "wt2", 2)
+
+	// Try to allocate with max=2, should fail
+	_, err := AllocateIndex(repoRoot, 2)
+	if err == nil {
+		t.Error("expected error when max index reached, got nil")
+	}
+
+	// Verify error message
+	expectedErr := "no available index: all indexes 1-2 are in use"
+	if err.Error() != expectedErr {
+		t.Errorf("expected error %q, got %q", expectedErr, err.Error())
+	}
+
+	// With max=3, should succeed
+	index, err := AllocateIndex(repoRoot, 3)
+	if err != nil {
+		t.Fatalf("failed to allocate index with max=3: %v", err)
+	}
+	if index != 3 {
+		t.Errorf("expected index 3, got %d", index)
+	}
+
+	// With max=0 (no limit), should also succeed
+	index, err = AllocateIndex(repoRoot, 0)
+	if err != nil {
+		t.Fatalf("failed to allocate index with no limit: %v", err)
+	}
+	if index != 3 {
+		t.Errorf("expected index 3, got %d", index)
+	}
+}
+
+func TestWorktreeStatusIncludesIndex(t *testing.T) {
+	repoRoot, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	mainBranch, err := GetCurrentBranch(repoRoot)
+	if err != nil {
+		t.Fatalf("failed to get current branch: %v", err)
+	}
+
+	// Create a worktree
+	worktreePath := filepath.Join(repoRoot, "worktrees", "test-wt")
+	worktreeName := "test-wt"
+	branchName := "test-branch"
+	if err := CreateWorktree(repoRoot, worktreePath, branchName); err != nil {
+		t.Fatalf("failed to create worktree: %v", err)
+	}
+	defer func() { _ = RemoveWorktree(repoRoot, worktreePath, true) }()
+
+	// Set index
+	_ = SetWorktreeIndex(repoRoot, worktreeName, 7)
+
+	// Get status - should include index
+	status, err := GetWorktreeStatus(repoRoot, worktreePath, worktreeName, branchName, mainBranch, nil)
+	if err != nil {
+		t.Fatalf("failed to get worktree status: %v", err)
+	}
+	if status.Index != 7 {
+		t.Errorf("expected Index 7, got %d", status.Index)
+	}
+}

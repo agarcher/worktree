@@ -45,6 +45,83 @@ func TestEnvToEnvVars(t *testing.T) {
 	}
 }
 
+func TestEnvToEnvVarsWithIndex(t *testing.T) {
+	env := &Env{
+		Name:        "test-wt",
+		Path:        "/repo/worktrees/test-wt",
+		Branch:      "test-branch",
+		RepoRoot:    "/repo",
+		WorktreeDir: "worktrees",
+		Index:       5,
+	}
+
+	vars := env.ToEnvVars()
+
+	expected := map[string]string{
+		"WT_NAME":         "test-wt",
+		"WT_PATH":         "/repo/worktrees/test-wt",
+		"WT_BRANCH":       "test-branch",
+		"WT_REPO_ROOT":    "/repo",
+		"WT_WORKTREE_DIR": "worktrees",
+		"WT_INDEX":        "5",
+	}
+
+	if len(vars) != len(expected) {
+		t.Errorf("expected %d vars (including WT_INDEX), got %d", len(expected), len(vars))
+	}
+
+	for _, v := range vars {
+		found := false
+		for key, val := range expected {
+			if v == key+"="+val {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("unexpected env var: %s", v)
+		}
+	}
+
+	// Verify WT_INDEX is present
+	foundIndex := false
+	for _, v := range vars {
+		if v == "WT_INDEX=5" {
+			foundIndex = true
+			break
+		}
+	}
+	if !foundIndex {
+		t.Error("WT_INDEX=5 not found in env vars")
+	}
+}
+
+func TestEnvToEnvVarsIndexZeroNotIncluded(t *testing.T) {
+	// When Index is 0, WT_INDEX should not be included
+	env := &Env{
+		Name:        "test-wt",
+		Path:        "/repo/worktrees/test-wt",
+		Branch:      "test-branch",
+		RepoRoot:    "/repo",
+		WorktreeDir: "worktrees",
+		Index:       0,
+	}
+
+	vars := env.ToEnvVars()
+
+	// Should have 5 vars (no WT_INDEX)
+	if len(vars) != 5 {
+		t.Errorf("expected 5 vars (no WT_INDEX when Index=0), got %d", len(vars))
+	}
+
+	// Verify WT_INDEX is NOT present
+	for _, v := range vars {
+		if contains(v, "WT_INDEX") {
+			t.Errorf("WT_INDEX should not be present when Index=0, but found: %s", v)
+		}
+	}
+}
+
 func TestRunHook(t *testing.T) {
 	// Create a temporary directory
 	tmpDir, err := os.MkdirTemp("", "wt-hooks-test-*")

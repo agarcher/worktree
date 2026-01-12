@@ -108,6 +108,18 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Allocate and store worktree index
+	index, err := git.AllocateIndex(repoRoot, cfg.Index.Max)
+	if err != nil {
+		cmd.Printf("Warning: could not allocate index: %v\n", err)
+	} else {
+		if err := git.SetWorktreeIndex(repoRoot, name, index); err != nil {
+			cmd.Printf("Warning: could not store index: %v\n", err)
+		} else {
+			env.Index = index
+		}
+	}
+
 	// Run post-create hooks
 	if err := hooks.RunPostCreate(cfg, env); err != nil {
 		cmd.Printf("Warning: post-create hook failed: %v\n", err)

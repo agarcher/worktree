@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/agarcher/wt/internal/git"
 )
 
 // resetFlags resets command flags to their default values between tests
@@ -300,6 +302,116 @@ func TestCreateAndDeleteWorkflow(t *testing.T) {
 	if _, err := os.Stat(expectedPath); !os.IsNotExist(err) {
 		t.Error("worktree still exists after deletion")
 	}
+}
+
+func TestCreateAllocatesIndex(t *testing.T) {
+	repoRoot, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	oldDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(oldDir) }()
+	_ = os.Chdir(repoRoot)
+
+	// Create first worktree - should get index 1
+	_, _, err := executeCommand("create", "wt-one")
+	if err != nil {
+		t.Fatalf("create command failed: %v", err)
+	}
+
+	index1, err := git.GetWorktreeIndex(repoRoot, "wt-one")
+	if err != nil {
+		t.Fatalf("failed to get index for wt-one: %v", err)
+	}
+	if index1 != 1 {
+		t.Errorf("expected wt-one to have index 1, got %d", index1)
+	}
+
+	// Create second worktree - should get index 2
+	_, _, err = executeCommand("create", "wt-two")
+	if err != nil {
+		t.Fatalf("create command failed: %v", err)
+	}
+
+	index2, err := git.GetWorktreeIndex(repoRoot, "wt-two")
+	if err != nil {
+		t.Fatalf("failed to get index for wt-two: %v", err)
+	}
+	if index2 != 2 {
+		t.Errorf("expected wt-two to have index 2, got %d", index2)
+	}
+
+	// Delete first worktree - frees index 1
+	_, _, err = executeCommand("delete", "wt-one", "--force")
+	if err != nil {
+		t.Fatalf("delete command failed: %v", err)
+	}
+
+	// Create third worktree - should reuse index 1
+	_, _, err = executeCommand("create", "wt-three")
+	if err != nil {
+		t.Fatalf("create command failed: %v", err)
+	}
+
+	index3, err := git.GetWorktreeIndex(repoRoot, "wt-three")
+	if err != nil {
+		t.Fatalf("failed to get index for wt-three: %v", err)
+	}
+	if index3 != 1 {
+		t.Errorf("expected wt-three to reuse index 1, got %d", index3)
+	}
+
+	// Cleanup
+	_, _, _ = executeCommand("delete", "wt-two", "--force")
+	_, _, _ = executeCommand("delete", "wt-three", "--force")
+}
+
+func TestListShowsIndex(t *testing.T) {
+	repoRoot, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	oldDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(oldDir) }()
+	_ = os.Chdir(repoRoot)
+
+	// Create a worktree
+	_, _, err := executeCommand("create", "indexed-wt")
+	if err != nil {
+		t.Fatalf("create command failed: %v", err)
+	}
+
+	// List should show the index
+	stdout, _, err := executeCommand("list")
+	if err != nil {
+		t.Fatalf("list command failed: %v", err)
+	}
+
+	// Should show INDEX header and index 1 for the worktree
+	if !strings.Contains(stdout, "INDEX") {
+		t.Error("list output should contain INDEX header")
+	}
+	// Check that the index column contains "1" (without # prefix)
+	// The output format is: "  name  index  branch  status"
+	lines := strings.Split(stdout, "\n")
+	foundIndex := false
+	for _, line := range lines {
+		if strings.Contains(line, "indexed-wt") {
+			// Parse the line to find the index value
+			fields := strings.Fields(line)
+			for _, field := range fields {
+				if field == "1" {
+					foundIndex = true
+					break
+				}
+			}
+			break
+		}
+	}
+	if !foundIndex {
+		t.Errorf("list output should show index 1 for the worktree, got: %s", stdout)
+	}
+
+	// Cleanup
+	_, _, _ = executeCommand("delete", "indexed-wt", "--force")
 }
 
 func TestCreateWithExistingBranch(t *testing.T) {

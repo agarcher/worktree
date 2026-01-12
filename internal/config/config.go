@@ -12,12 +12,18 @@ const (
 	ConfigFileName = ".wt.yaml"
 )
 
+// IndexConfig contains worktree index configuration
+type IndexConfig struct {
+	Max int `yaml:"max"` // Maximum allowed index (0 = no limit)
+}
+
 // Config represents the repository-level configuration
 type Config struct {
 	Version       int          `yaml:"version"`
 	WorktreeDir   string       `yaml:"worktree_dir"`
 	BranchPattern string       `yaml:"branch_pattern"`
 	Hooks         HooksConfig  `yaml:"hooks"`
+	Index         IndexConfig  `yaml:"index"`
 }
 
 // HooksConfig contains all lifecycle hook configurations
