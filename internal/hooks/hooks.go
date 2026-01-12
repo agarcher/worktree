@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 
 	"github.com/agarcher/wt/internal/config"
 )
@@ -16,17 +17,23 @@ type Env struct {
 	Branch      string
 	RepoRoot    string
 	WorktreeDir string
+	Index       int
 }
 
 // ToEnvVars converts the Env struct to environment variable format
 func (e *Env) ToEnvVars() []string {
-	return []string{
+	vars := []string{
 		"WT_NAME=" + e.Name,
 		"WT_PATH=" + e.Path,
 		"WT_BRANCH=" + e.Branch,
 		"WT_REPO_ROOT=" + e.RepoRoot,
 		"WT_WORKTREE_DIR=" + e.WorktreeDir,
 	}
+	// Only include WT_INDEX if set (non-zero)
+	if e.Index > 0 {
+		vars = append(vars, "WT_INDEX="+strconv.Itoa(e.Index))
+	}
+	return vars
 }
 
 // Run executes a list of hook entries

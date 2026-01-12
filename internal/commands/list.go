@@ -46,6 +46,7 @@ type worktreeInfo struct {
 	path          string
 	currentMarker string
 	status        *git.WorktreeStatus
+	index         int
 }
 
 func runList(cmd *cobra.Command, args []string) error {
@@ -100,6 +101,9 @@ func runList(cmd *cobra.Command, args []string) error {
 		// Get full worktree status
 		status, _ := git.GetWorktreeStatus(repoRoot, wt.Path, name, wt.Branch, mainBranch, mergedCache)
 
+		// Get worktree index
+		idx, _ := git.GetWorktreeIndex(repoRoot, name)
+
 		// Check if this is the current worktree (exact match or inside it)
 		currentMarker := "  "
 		if cwd == wt.Path || strings.HasPrefix(cwd, wt.Path+string(filepath.Separator)) {
@@ -112,6 +116,7 @@ func runList(cmd *cobra.Command, args []string) error {
 			path:          wt.Path,
 			currentMarker: currentMarker,
 			status:        status,
+			index:         idx,
 		})
 	}
 
@@ -149,10 +154,14 @@ func printCompactWorktrees(cmd *cobra.Command, worktrees []worktreeInfo) {
 	}
 
 	// Print header and rows with dynamic widths
-	_, _ = fmt.Fprintf(out, "  %-*s  %-*s  %s\n", nameWidth, "NAME", branchWidth, "BRANCH", "STATUS")
+	_, _ = fmt.Fprintf(out, "  %-*s  %5s  %-*s  %s\n", nameWidth, "NAME", "INDEX", branchWidth, "BRANCH", "STATUS")
 	for _, wt := range worktrees {
 		statusStr := FormatCompactStatus(wt.status)
-		_, _ = fmt.Fprintf(out, "%s%-*s  %-*s  %s\n", wt.currentMarker, nameWidth, wt.name, branchWidth, wt.branch, statusStr)
+		indexStr := "-"
+		if wt.index > 0 {
+			indexStr = fmt.Sprintf("#%d", wt.index)
+		}
+		_, _ = fmt.Fprintf(out, "%s%-*s  %5s  %-*s  %s\n", wt.currentMarker, nameWidth, wt.name, indexStr, branchWidth, wt.branch, statusStr)
 	}
 }
 
@@ -165,6 +174,11 @@ func printVerboseWorktrees(cmd *cobra.Command, worktrees []worktreeInfo) {
 		_, _ = fmt.Fprintln(out, separator)
 		_, _ = fmt.Fprintf(out, "%s%s\n", wt.currentMarker, wt.name)
 		_, _ = fmt.Fprintf(out, "  Branch: %s\n", wt.branch)
+
+		// Index
+		if wt.index > 0 {
+			_, _ = fmt.Fprintf(out, "  Index: %d\n", wt.index)
+		}
 
 		// Age
 		if !wt.status.CreatedAt.IsZero() {

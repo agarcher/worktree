@@ -239,6 +239,7 @@ type WorktreeStatus struct {
 	MergedPRs             []string // PR numbers found in merge commits (e.g., ["#1", "#2"])
 	IsNew                 bool     // true if still on the initial commit (no new commits yet)
 	CreatedAt             time.Time
+	Index                 int // Stable numeric identifier for the worktree
 }
 
 // GetCommitsAheadBehind returns the number of commits ahead and behind the main branch
@@ -505,5 +506,62 @@ func GetWorktreeStatus(repoRoot, worktreePath, worktreeName, branchName, mainBra
 	createdAt, _ := GetWorktreeCreatedAt(repoRoot, worktreeName)
 	status.CreatedAt = createdAt
 
+	// Get worktree index
+	index, _ := GetWorktreeIndex(repoRoot, worktreeName)
+	status.Index = index
+
 	return status, nil
+}
+
+// SetWorktreeIndex stores the index in the worktree's metadata directory
+func SetWorktreeIndex(repoRoot, worktreeName string, index int) error {
+	indexPath := filepath.Join(repoRoot, ".git", "worktrees", worktreeName, "wt-index")
+
+	// Verify the worktree directory exists
+	worktreeDir := filepath.Dir(indexPath)
+	if _, err := os.Stat(worktreeDir); os.IsNotExist(err) {
+		return fmt.Errorf("worktree directory not found: %s", worktreeDir)
+	}
+
+	return os.WriteFile(indexPath, []byte(strconv.Itoa(index)+"\n"), 0644)
+}
+
+// GetWorktreeIndex retrieves the index from the worktree's metadata directory
+func GetWorktreeIndex(repoRoot, worktreeName string) (int, error) {
+	indexPath := filepath.Join(repoRoot, ".git", "worktrees", worktreeName, "wt-index")
+
+	data, err := os.ReadFile(indexPath)
+	if err != nil {
+		return 0, err
+	}
+
+	return strconv.Atoi(strings.TrimSpace(string(data)))
+}
+
+// AllocateIndex finds the lowest unused index for a new worktree
+func AllocateIndex(repoRoot string, maxIndex int) (int, error) {
+	used := make(map[int]bool)
+
+	// Scan all existing worktree indexes
+	worktreesDir := filepath.Join(repoRoot, ".git", "worktrees")
+	entries, err := os.ReadDir(worktreesDir)
+	if err != nil && !os.IsNotExist(err) {
+		return 0, err
+	}
+
+	for _, entry := range entries {
+		if idx, err := GetWorktreeIndex(repoRoot, entry.Name()); err == nil {
+			used[idx] = true
+		}
+	}
+
+	// Find lowest unused (starting at 1, reserve 0 for main repo)
+	for i := 1; ; i++ {
+		if maxIndex > 0 && i > maxIndex {
+			return 0, fmt.Errorf("no available index: all indexes 1-%d are in use", maxIndex)
+		}
+		if !used[i] {
+			return i, nil
+		}
+	}
 }

@@ -97,6 +97,32 @@ hooks:
 			},
 		},
 		{
+			name: "config with index max",
+			configYAML: `version: 1
+worktree_dir: worktrees
+index:
+  max: 20
+`,
+			wantErr: false,
+			checkConfig: func(t *testing.T, cfg *Config) {
+				if cfg.Index.Max != 20 {
+					t.Errorf("expected index.max 20, got %d", cfg.Index.Max)
+				}
+			},
+		},
+		{
+			name: "config without index defaults to zero max",
+			configYAML: `version: 1
+worktree_dir: worktrees
+`,
+			wantErr: false,
+			checkConfig: func(t *testing.T, cfg *Config) {
+				if cfg.Index.Max != 0 {
+					t.Errorf("expected index.max 0 (no limit), got %d", cfg.Index.Max)
+				}
+			},
+		},
+		{
 			name:       "invalid yaml",
 			configYAML: `version: [invalid`,
 			wantErr:    true,

@@ -201,6 +201,11 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 			WorktreeDir: cfg.WorktreeDir,
 		}
 
+		// Get index for hooks
+		if idx, err := git.GetWorktreeIndex(repoRoot, c.name); err == nil {
+			env.Index = idx
+		}
+
 		// Run pre-delete hooks
 		if err := hooks.RunPreDelete(cfg, env); err != nil {
 			if !cleanupForce {
