@@ -1,0 +1,6 @@
+version: 1
+worktree_dir: worktrees
+hooks:
+  post_create:
+    - script: ./scripts/copy-node-modules.sh
+    - script: ./scripts/setup-ports.sh
