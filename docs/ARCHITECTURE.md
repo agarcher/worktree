@@ -7,28 +7,30 @@ This document describes the internal architecture of `wt` for developers who wan
 `wt` is a Git worktree manager CLI built with Go and Cobra. It follows a shell wrapper pattern similar to tools like direnv, zoxide, and starship.
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        User Shell                           │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │  Shell Function (from `wt init zsh`)                │   │
-│  │  - Wraps binary calls                               │   │
-│  │  - Handles `cd` based on binary output              │   │
-│  │  - Passes through to PATH when not in wt repo       │   │
-│  └──────────────────────┬──────────────────────────────┘   │
-└─────────────────────────┼───────────────────────────────────┘
+┌───────────────────────────────────────────────────────────┐
+│                        User Shell                         │
+│  ┌─────────────────────────────────────────────────────┐  │
+│  │  Shell Function (from `wt init zsh`)                │  │
+│  │  - Wraps binary calls                               │  │
+│  │  - Handles `cd` based on binary output              │  │
+│  │  - Passes through to PATH when not in wt repo       │  │
+│  └──────────────────────┬──────────────────────────────┘  │
+└─────────────────────────┼─────────────────────────────────┘
                           │
                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│                     Go Binary (`wt`)                        │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
-│  │   Commands  │  │   Config    │  │   Hook Executor     │ │
-│  │  - create   │  │  - .wt.yaml │  │  - pre_create       │ │
-│  │  - delete   │  │  - global   │  │  - post_create      │ │
-│  │  - list     │  │             │  │  - pre_delete       │ │
-│  │  - cd       │  │             │  │  - post_delete      │ │
-│  │  - init     │  │             │  │  - pre_cleanup      │ │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────┐
+│                     Go Binary (`wt`)                      │
+│  ┌───────────────┐  ┌─────────────┐  ┌─────────────────┐  │
+│  │   Commands    │  │   Config    │  │  Hook Executor  │  │
+│  │  - create     │  │  - .wt.yaml │  │  - pre_create   │  │
+│  │  - delete     │  │             │  │  - post_create  │  │
+│  │  - cleanup    │  │             │  │  - pre_delete   │  │
+│  │  - list       │  │             │  │  - post_delete  │  │
+│  │  - cd / exit  │  │             │  │                 │  │
+│  │  - init       │  │             │  │                 │  │
+│  │  - root       │  │             │  │                 │  │
+│  └───────────────┘  └─────────────┘  └─────────────────┘  │
+└───────────────────────────────────────────────────────────┘
 ```
 
 ## Package Structure
