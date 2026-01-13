@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/agarcher/wt/internal/config"
 	"github.com/agarcher/wt/internal/git"
 	"github.com/agarcher/wt/internal/hooks"
 	"github.com/spf13/cobra"
@@ -50,34 +49,22 @@ type cleanupCandidate struct {
 }
 
 func runCleanup(cmd *cobra.Command, args []string) error {
-	// Find the main repository root
-	repoRoot, err := config.GetMainRepoRoot()
+	// Setup comparison context (prints repo root, fetches if configured, prints comparison ref)
+	setup, err := SetupCompare(cmd)
 	if err != nil {
-		return fmt.Errorf("not in a git repository: %w", err)
-	}
-
-	// Load configuration
-	cfg, err := config.Load(repoRoot)
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	// Get default branch
-	defaultBranch, err := git.GetDefaultBranch(repoRoot)
-	if err != nil {
-		return fmt.Errorf("failed to determine default branch: %w", err)
+		return err
 	}
 
 	// Get all worktrees
-	worktrees, err := git.ListWorktrees(repoRoot)
+	worktrees, err := git.ListWorktrees(setup.RepoRoot)
 	if err != nil {
 		return fmt.Errorf("failed to list worktrees: %w", err)
 	}
 
-	worktreesDir := filepath.Join(repoRoot, cfg.WorktreeDir)
+	worktreesDir := filepath.Join(setup.RepoRoot, setup.Config.WorktreeDir)
 
 	// Get merged branches cache for efficiency
-	mergedCache, err := git.GetMergedBranches(repoRoot, defaultBranch)
+	mergedCache, err := git.GetMergedBranches(setup.RepoRoot, setup.ComparisonRef)
 	if err != nil {
 		cmd.Printf("Warning: could not get merged branches: %v\n", err)
 	}
@@ -87,7 +74,7 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 
 	for _, wt := range worktrees {
 		// Skip the main worktree
-		if wt.Path == repoRoot {
+		if wt.Path == setup.RepoRoot {
 			continue
 		}
 
@@ -97,7 +84,7 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 		}
 
 		// Get worktree name
-		name := git.GetWorktreeName(repoRoot, wt.Path, cfg.WorktreeDir)
+		name := git.GetWorktreeName(setup.RepoRoot, wt.Path, setup.Config.WorktreeDir)
 
 		// Skip if no branch (detached HEAD)
 		if wt.Branch == "" {
@@ -105,7 +92,7 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 		}
 
 		// Get full worktree status
-		status, err := git.GetWorktreeStatus(repoRoot, wt.Path, name, wt.Branch, defaultBranch, mergedCache)
+		status, err := git.GetWorktreeStatus(setup.RepoRoot, wt.Path, name, wt.Branch, setup.ComparisonRef, mergedCache)
 		if err != nil {
 			cmd.Printf("Warning: could not get status for %s: %v\n", name, err)
 			continue
@@ -208,17 +195,17 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 			Name:        c.name,
 			Path:        c.path,
 			Branch:      c.branch,
-			RepoRoot:    repoRoot,
-			WorktreeDir: cfg.WorktreeDir,
+			RepoRoot:    setup.RepoRoot,
+			WorktreeDir: setup.Config.WorktreeDir,
 		}
 
 		// Get index for hooks
-		if idx, err := git.GetWorktreeIndex(repoRoot, c.name); err == nil {
+		if idx, err := git.GetWorktreeIndex(setup.RepoRoot, c.name); err == nil {
 			env.Index = idx
 		}
 
 		// Run pre-delete hooks
-		if err := hooks.RunPreDelete(cfg, env); err != nil {
+		if err := hooks.RunPreDelete(setup.Config, env); err != nil {
 			if !cleanupForce {
 				cmd.Printf("Skipping %s: pre-delete hook failed: %v\n", c.name, err)
 				continue
@@ -228,7 +215,7 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 
 		// Delete the worktree
 		cmd.Printf("Deleting worktree %q...\n", c.name)
-		if err := git.RemoveWorktree(repoRoot, c.path, cleanupForce); err != nil {
+		if err := git.RemoveWorktree(setup.RepoRoot, c.path, cleanupForce); err != nil {
 			cmd.Printf("Error: failed to delete %s: %v\n", c.name, err)
 			continue
 		}
@@ -236,13 +223,13 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 		// Delete the branch unless --keep-branch is specified
 		if !cleanupKeepBranch && c.branch != "" {
 			cmd.Printf("Deleting branch %q...\n", c.branch)
-			if err := git.DeleteBranch(repoRoot, c.branch, cleanupForce); err != nil {
+			if err := git.DeleteBranch(setup.RepoRoot, c.branch, cleanupForce); err != nil {
 				cmd.Printf("Warning: failed to delete branch %s: %v\n", c.branch, err)
 			}
 		}
 
 		// Run post-delete hooks
-		if err := hooks.RunPostDelete(cfg, env); err != nil {
+		if err := hooks.RunPostDelete(setup.Config, env); err != nil {
 			cmd.Printf("Warning: post-delete hook failed for %s: %v\n", c.name, err)
 		}
 
@@ -253,7 +240,7 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 
 	// If user was in a deleted worktree, output repo root for shell wrapper to cd
 	if inDeletedWorktree && deleted > 0 {
-		_, _ = fmt.Fprintln(cmd.OutOrStdout(), repoRoot)
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), setup.RepoRoot)
 	}
 
 	return nil

@@ -1085,3 +1085,44 @@ func TestWorktreeStatusIncludesIndex(t *testing.T) {
 		t.Errorf("expected Index 7, got %d", status.Index)
 	}
 }
+
+func TestRefExists(t *testing.T) {
+	repoRoot, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	mainBranch, err := GetCurrentBranch(repoRoot)
+	if err != nil {
+		t.Fatalf("failed to get current branch: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		ref      string
+		expected bool
+	}{
+		{"existing branch", mainBranch, true},
+		{"HEAD", "HEAD", true},
+		{"non-existent branch", "non-existent-branch", false},
+		{"non-existent remote ref", "origin/main", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := RefExists(repoRoot, tt.ref)
+			if result != tt.expected {
+				t.Errorf("RefExists(%q) = %v, want %v", tt.ref, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestFetchRemoteQuiet(t *testing.T) {
+	repoRoot, cleanup := setupTestRepo(t)
+	defer cleanup()
+
+	// FetchRemoteQuiet should fail with non-existent remote (no remote configured)
+	err := FetchRemoteQuiet(repoRoot, "origin")
+	if err == nil {
+		t.Error("expected error when fetching from non-existent remote")
+	}
+}

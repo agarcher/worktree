@@ -19,6 +19,10 @@ func resetFlags() {
 	cleanupDryRun = false
 	cleanupForce = false
 	cleanupKeepBranch = false
+	configGlobal = false
+	configUnset = false
+	configList = false
+	configShowOrigin = false
 }
 
 // setupTestRepo creates a temporary git repository with .wt.yaml for testing
@@ -900,4 +904,319 @@ func TestCleanupSkipsUncommittedChanges(t *testing.T) {
 
 	// Cleanup
 	_, _, _ = executeCommand("delete", "dirty-feature", "--force")
+}
+
+// setupTestRepoWithIsolatedHome creates a test repo with isolated HOME directory
+func setupTestRepoWithIsolatedHome(t *testing.T) (repoRoot string, homeDir string, cleanup func()) {
+	t.Helper()
+
+	repoRoot, repoCleanup := setupTestRepo(t)
+
+	// Create isolated HOME directory for user config
+	homeDir, err := os.MkdirTemp("", "wt-home-test-*")
+	if err != nil {
+		repoCleanup()
+		t.Fatalf("failed to create temp home dir: %v", err)
+	}
+
+	// Resolve symlinks
+	homeDir, err = filepath.EvalSymlinks(homeDir)
+	if err != nil {
+		_ = os.RemoveAll(homeDir)
+		repoCleanup()
+		t.Fatalf("failed to eval symlinks: %v", err)
+	}
+
+	// Set HOME to isolated directory
+	oldHome := os.Getenv("HOME")
+	_ = os.Setenv("HOME", homeDir)
+
+	cleanup = func() {
+		_ = os.Setenv("HOME", oldHome)
+		_ = os.RemoveAll(homeDir)
+		repoCleanup()
+	}
+
+	return repoRoot, homeDir, cleanup
+}
+
+func TestConfigHelp(t *testing.T) {
+	stdout, _, err := executeCommand("config", "--help")
+	if err != nil {
+		t.Fatalf("config --help failed: %v", err)
+	}
+
+	expectedStrings := []string{
+		"config",
+		"--global",
+		"--list",
+		"--show-origin",
+		"--unset",
+		"remote",
+		"fetch",
+	}
+	for _, s := range expectedStrings {
+		if !strings.Contains(stdout, s) {
+			t.Errorf("expected help to contain %q, got: %s", s, stdout)
+		}
+	}
+}
+
+func TestConfigSetAndGetGlobal(t *testing.T) {
+	repoRoot, homeDir, cleanup := setupTestRepoWithIsolatedHome(t)
+	defer cleanup()
+
+	// Change to test repo
+	oldWd, _ := os.Getwd()
+	_ = os.Chdir(repoRoot)
+	defer func() { _ = os.Chdir(oldWd) }()
+
+	// Set global remote
+	_, _, err := executeCommand("config", "--global", "remote", "origin")
+	if err != nil {
+		t.Fatalf("config set failed: %v", err)
+	}
+
+	// Verify config file was created
+	configPath := filepath.Join(homeDir, ".config", "wt", "config.yaml")
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		t.Errorf("config file not created at %s", configPath)
+	}
+
+	// Get global remote
+	stdout, _, err := executeCommand("config", "--global", "remote")
+	if err != nil {
+		t.Fatalf("config get failed: %v", err)
+	}
+	if !strings.Contains(stdout, "origin") {
+		t.Errorf("expected 'origin', got: %s", stdout)
+	}
+
+	// Set global fetch
+	_, _, err = executeCommand("config", "--global", "fetch", "true")
+	if err != nil {
+		t.Fatalf("config set fetch failed: %v", err)
+	}
+
+	// Get global fetch
+	stdout, _, err = executeCommand("config", "--global", "fetch")
+	if err != nil {
+		t.Fatalf("config get fetch failed: %v", err)
+	}
+	if !strings.Contains(stdout, "true") {
+		t.Errorf("expected 'true', got: %s", stdout)
+	}
+}
+
+func TestConfigSetPerRepo(t *testing.T) {
+	repoRoot, _, cleanup := setupTestRepoWithIsolatedHome(t)
+	defer cleanup()
+
+	// Change to test repo
+	oldWd, _ := os.Getwd()
+	_ = os.Chdir(repoRoot)
+	defer func() { _ = os.Chdir(oldWd) }()
+
+	// Set per-repo remote
+	_, _, err := executeCommand("config", "remote", "upstream")
+	if err != nil {
+		t.Fatalf("config set failed: %v", err)
+	}
+
+	// Get per-repo remote (should show effective value)
+	stdout, _, err := executeCommand("config", "remote")
+	if err != nil {
+		t.Fatalf("config get failed: %v", err)
+	}
+	if !strings.Contains(stdout, "upstream") {
+		t.Errorf("expected 'upstream', got: %s", stdout)
+	}
+}
+
+func TestConfigList(t *testing.T) {
+	repoRoot, _, cleanup := setupTestRepoWithIsolatedHome(t)
+	defer cleanup()
+
+	// Change to test repo
+	oldWd, _ := os.Getwd()
+	_ = os.Chdir(repoRoot)
+	defer func() { _ = os.Chdir(oldWd) }()
+
+	// Set some values
+	_, _, _ = executeCommand("config", "--global", "remote", "origin")
+	_, _, _ = executeCommand("config", "--global", "fetch", "true")
+	_, _, _ = executeCommand("config", "remote", "upstream")
+
+	// List all config
+	stdout, _, err := executeCommand("config", "--list")
+	if err != nil {
+		t.Fatalf("config --list failed: %v", err)
+	}
+
+	if !strings.Contains(stdout, "remote = origin") {
+		t.Errorf("expected global remote in list, got: %s", stdout)
+	}
+	if !strings.Contains(stdout, "fetch = true") {
+		t.Errorf("expected global fetch in list, got: %s", stdout)
+	}
+	if !strings.Contains(stdout, "remote = upstream") {
+		t.Errorf("expected per-repo remote in list, got: %s", stdout)
+	}
+}
+
+func TestConfigShowOrigin(t *testing.T) {
+	repoRoot, _, cleanup := setupTestRepoWithIsolatedHome(t)
+	defer cleanup()
+
+	// Change to test repo
+	oldWd, _ := os.Getwd()
+	_ = os.Chdir(repoRoot)
+	defer func() { _ = os.Chdir(oldWd) }()
+
+	// Set a global remote
+	_, _, _ = executeCommand("config", "--global", "remote", "origin")
+
+	// Show origin
+	stdout, _, err := executeCommand("config", "--show-origin")
+	if err != nil {
+		t.Fatalf("config --show-origin failed: %v", err)
+	}
+
+	if !strings.Contains(stdout, "remote") {
+		t.Errorf("expected 'remote' in show-origin output, got: %s", stdout)
+	}
+	if !strings.Contains(stdout, "fetch") {
+		t.Errorf("expected 'fetch' in show-origin output, got: %s", stdout)
+	}
+}
+
+func TestConfigUnset(t *testing.T) {
+	repoRoot, _, cleanup := setupTestRepoWithIsolatedHome(t)
+	defer cleanup()
+
+	// Change to test repo
+	oldWd, _ := os.Getwd()
+	_ = os.Chdir(repoRoot)
+	defer func() { _ = os.Chdir(oldWd) }()
+
+	// Set a per-repo value
+	_, _, _ = executeCommand("config", "remote", "upstream")
+
+	// Verify it's set
+	stdout, _, _ := executeCommand("config", "remote")
+	if !strings.Contains(stdout, "upstream") {
+		t.Fatalf("expected 'upstream' before unset, got: %s", stdout)
+	}
+
+	// Unset it
+	_, _, err := executeCommand("config", "--unset", "remote")
+	if err != nil {
+		t.Fatalf("config --unset failed: %v", err)
+	}
+
+	// Verify it's unset (should be empty or fall back to global)
+	stdout, _, _ = executeCommand("config", "remote")
+	if strings.Contains(stdout, "upstream") {
+		t.Errorf("expected 'upstream' to be removed, got: %s", stdout)
+	}
+}
+
+func TestConfigInvalidKey(t *testing.T) {
+	repoRoot, _, cleanup := setupTestRepoWithIsolatedHome(t)
+	defer cleanup()
+
+	// Change to test repo
+	oldWd, _ := os.Getwd()
+	_ = os.Chdir(repoRoot)
+	defer func() { _ = os.Chdir(oldWd) }()
+
+	// Try to set invalid key
+	_, _, err := executeCommand("config", "--global", "invalid_key", "value")
+	if err == nil {
+		t.Error("expected error for invalid key, got none")
+	}
+}
+
+func TestConfigFetchWithoutRemoteWarning(t *testing.T) {
+	repoRoot, _, cleanup := setupTestRepoWithIsolatedHome(t)
+	defer cleanup()
+
+	// Change to test repo
+	oldWd, _ := os.Getwd()
+	_ = os.Chdir(repoRoot)
+	defer func() { _ = os.Chdir(oldWd) }()
+
+	// Set fetch=true without remote (should warn)
+	_, stderr, err := executeCommand("config", "--global", "fetch", "true")
+	if err != nil {
+		t.Fatalf("config set failed: %v", err)
+	}
+
+	if !strings.Contains(stderr, "Warning") || !strings.Contains(stderr, "remote") {
+		t.Errorf("expected warning about fetch without remote, got stderr: %s", stderr)
+	}
+}
+
+func TestConfigGlobalUnset(t *testing.T) {
+	repoRoot, _, cleanup := setupTestRepoWithIsolatedHome(t)
+	defer cleanup()
+
+	// Change to test repo
+	oldWd, _ := os.Getwd()
+	_ = os.Chdir(repoRoot)
+	defer func() { _ = os.Chdir(oldWd) }()
+
+	// Set a global value
+	_, _, err := executeCommand("config", "--global", "remote", "origin")
+	if err != nil {
+		t.Fatalf("config set failed: %v", err)
+	}
+
+	// Verify it's set
+	stdout, _, _ := executeCommand("config", "--global", "remote")
+	if !strings.Contains(stdout, "origin") {
+		t.Fatalf("expected 'origin' before unset, got: %s", stdout)
+	}
+
+	// Unset it globally
+	_, _, err = executeCommand("config", "--global", "--unset", "remote")
+	if err != nil {
+		t.Fatalf("config --global --unset failed: %v", err)
+	}
+
+	// Verify it's unset (should be empty)
+	stdout, _, _ = executeCommand("config", "--global", "remote")
+	stdout = strings.TrimSpace(stdout)
+	if stdout != "" {
+		t.Errorf("expected empty remote after unset, got: %q", stdout)
+	}
+}
+
+func TestListShowsRepoAndComparisonRef(t *testing.T) {
+	repoRoot, _, cleanup := setupTestRepoWithIsolatedHome(t)
+	defer cleanup()
+
+	// Change to test repo
+	oldWd, _ := os.Getwd()
+	_ = os.Chdir(repoRoot)
+	defer func() { _ = os.Chdir(oldWd) }()
+
+	// Run list
+	stdout, _, err := executeCommand("list")
+	if err != nil {
+		t.Fatalf("list command failed: %v", err)
+	}
+
+	// Should show repository path
+	if !strings.Contains(stdout, "Repository:") {
+		t.Errorf("expected 'Repository:' in output, got: %s", stdout)
+	}
+	if !strings.Contains(stdout, repoRoot) {
+		t.Errorf("expected repo path %s in output, got: %s", repoRoot, stdout)
+	}
+
+	// Should show comparison ref
+	if !strings.Contains(stdout, "Comparing to:") {
+		t.Errorf("expected 'Comparing to:' in output, got: %s", stdout)
+	}
 }
