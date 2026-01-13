@@ -17,6 +17,10 @@ const (
 // State indicators (mutually exclusive): new, in_progress, merged
 // dirty is additive and can appear alongside any state.
 func FormatCompactStatus(status *git.WorktreeStatus) string {
+	if status == nil {
+		return ""
+	}
+
 	var parts []string
 
 	if status.CommitsAhead > 0 {

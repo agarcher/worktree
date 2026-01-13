@@ -174,15 +174,20 @@ func printVerboseWorktrees(cmd *cobra.Command, worktrees []worktreeInfo, cfg *co
 		}
 
 		_, _ = fmt.Fprintln(out, separator)
-		PrintVerboseWorktree(out, VerboseInfo{
+
+		// Build VerboseInfo, guarding against nil status
+		info := VerboseInfo{
 			Name:          wt.name,
 			Branch:        wt.branch,
 			Index:         wt.index,
-			CreatedAt:     wt.status.CreatedAt,
-			Status:        wt.status,
 			CurrentMarker: wt.currentMarker,
 			HookOutput:    hookOutput,
-		})
+		}
+		if wt.status != nil {
+			info.CreatedAt = wt.status.CreatedAt
+			info.Status = wt.status
+		}
+		PrintVerboseWorktree(out, info)
 	}
 	_, _ = fmt.Fprintln(out, separator)
 }
