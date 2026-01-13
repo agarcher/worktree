@@ -33,6 +33,7 @@ type HooksConfig struct {
 	PostCreate []HookEntry `yaml:"post_create"`
 	PreDelete  []HookEntry `yaml:"pre_delete"`
 	PostDelete []HookEntry `yaml:"post_delete"`
+	Info       []HookEntry `yaml:"info"`
 }
 
 // HookEntry represents a single hook script configuration

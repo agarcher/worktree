@@ -5,9 +5,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
+	"github.com/agarcher/wt/internal/config"
 	"github.com/agarcher/wt/internal/git"
+	"github.com/agarcher/wt/internal/hooks"
 	"github.com/spf13/cobra"
 )
 
@@ -115,7 +116,7 @@ func runList(cmd *cobra.Command, args []string) error {
 
 	// Print based on verbose flag
 	if verboseFlag {
-		printVerboseWorktrees(cmd, managedWorktrees)
+		printVerboseWorktrees(cmd, managedWorktrees, setup.Config, setup.RepoRoot)
 	} else {
 		printCompactWorktrees(cmd, managedWorktrees)
 	}
@@ -153,91 +154,40 @@ func printCompactWorktrees(cmd *cobra.Command, worktrees []worktreeInfo) {
 }
 
 // printVerboseWorktrees prints worktrees in detailed multi-line format
-func printVerboseWorktrees(cmd *cobra.Command, worktrees []worktreeInfo) {
+func printVerboseWorktrees(cmd *cobra.Command, worktrees []worktreeInfo, cfg *config.Config, repoRoot string) {
 	out := cmd.OutOrStdout()
 	separator := strings.Repeat("=", 80)
 
 	for _, wt := range worktrees {
+		// Run info hooks to get custom output
+		hookOutput := ""
+		if len(cfg.Hooks.Info) > 0 {
+			env := &hooks.Env{
+				Name:        wt.name,
+				Path:        wt.path,
+				Branch:      wt.branch,
+				RepoRoot:    repoRoot,
+				WorktreeDir: cfg.WorktreeDir,
+				Index:       wt.index,
+			}
+			hookOutput, _ = hooks.RunInfo(cfg, env)
+		}
+
 		_, _ = fmt.Fprintln(out, separator)
-		_, _ = fmt.Fprintf(out, "%s%s\n", wt.currentMarker, wt.name)
-		_, _ = fmt.Fprintf(out, "  Branch: %s\n", wt.branch)
 
-		// Index
-		if wt.index > 0 {
-			_, _ = fmt.Fprintf(out, "  Index: %d\n", wt.index)
+		// Build VerboseInfo, guarding against nil status
+		info := VerboseInfo{
+			Name:          wt.name,
+			Branch:        wt.branch,
+			Index:         wt.index,
+			CurrentMarker: wt.currentMarker,
+			HookOutput:    hookOutput,
 		}
-
-		// Age
-		if !wt.status.CreatedAt.IsZero() {
-			age := formatAge(time.Since(wt.status.CreatedAt))
-			_, _ = fmt.Fprintf(out, "  Age: %s\n", age)
+		if wt.status != nil {
+			info.CreatedAt = wt.status.CreatedAt
+			info.Status = wt.status
 		}
-
-		// Ahead/Behind
-		if wt.status.CommitsAhead > 0 || wt.status.CommitsBehind > 0 {
-			aheadStr := "commit"
-			if wt.status.CommitsAhead != 1 {
-				aheadStr = "commits"
-			}
-			behindStr := "commit"
-			if wt.status.CommitsBehind != 1 {
-				behindStr = "commits"
-			}
-			_, _ = fmt.Fprintf(out, "  Ahead: %d %s  Behind: %d %s\n",
-				wt.status.CommitsAhead, aheadStr,
-				wt.status.CommitsBehind, behindStr)
-		}
-
-		// Status: state is mutually exclusive (new, in_progress, merged), dirty is additive
-		var statusLabels []string
-
-		// State indicator: new > in_progress > merged (mutually exclusive)
-		if wt.status.IsNew {
-			statusLabels = append(statusLabels, "new")
-		} else if wt.status.CommitsAhead > 0 && !wt.status.IsMerged {
-			statusLabels = append(statusLabels, bold+"in_progress"+reset)
-		} else if wt.status.IsMerged && wt.status.CommitsAhead == 0 {
-			statusLabels = append(statusLabels, FormatMergedStatus(wt.status.MergedPRs))
-		}
-
-		// dirty is additive
-		if wt.status.HasUncommittedChanges {
-			statusLabels = append(statusLabels, bold+"dirty"+reset)
-		}
-
-		if len(statusLabels) > 0 {
-			_, _ = fmt.Fprintf(out, "  Status: %s\n", strings.Join(statusLabels, ", "))
-		}
+		PrintVerboseWorktree(out, info)
 	}
 	_, _ = fmt.Fprintln(out, separator)
-}
-
-// formatAge formats a duration as a human-readable age string
-func formatAge(d time.Duration) string {
-	days := int(d.Hours() / 24)
-
-	if days == 0 {
-		hours := int(d.Hours())
-		if hours == 0 {
-			return "less than an hour"
-		}
-		if hours == 1 {
-			return "1 hour"
-		}
-		return fmt.Sprintf("%d hours", hours)
-	}
-
-	if days == 1 {
-		return "1 day"
-	}
-
-	weeks := days / 7
-	if weeks >= 1 {
-		if weeks == 1 {
-			return "1 week"
-		}
-		return fmt.Sprintf("%d weeks", weeks)
-	}
-
-	return fmt.Sprintf("%d days", days)
 }
