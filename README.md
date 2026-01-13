@@ -114,6 +114,10 @@ worktree_dir: worktrees
 # Available variables: {name}
 branch_pattern: "{name}"
 
+# Branch to compare against for list/cleanup status (optional)
+# If not set, auto-detected from remote HEAD or defaults to "main"
+default_branch: main
+
 # Lifecycle hooks (all optional)
 hooks:
   # Runs before worktree creation (in repo root)
@@ -180,6 +184,7 @@ index:
 | `wt cd <name>` | Change to a worktree directory |
 | `wt exit` | Return to main repository |
 | `wt root` | Print main repository path |
+| `wt config` | Manage user configuration |
 | `wt init <shell>` | Generate shell integration script |
 | `wt version` | Print version |
 
@@ -214,6 +219,68 @@ Flags:
 ```
 
 The `cleanup` command finds worktrees whose branches have been merged into the default branch (main/master) and removes them. This is useful for cleaning up after completing work on feature branches.
+
+### Config Options
+
+```bash
+wt config [key] [value] [flags]
+
+Flags:
+  --global        Set/get global configuration
+  --unset         Remove a per-repo configuration value
+  --list          List all configuration values
+  --show-origin   Show where each configuration value comes from
+```
+
+## User Configuration
+
+User settings are stored in `~/.config/wt/config.yaml` and control how `wt list` and `wt cleanup` compare worktree branches.
+
+### Remote Comparison Mode
+
+By default, worktrees are compared against the local default branch (e.g., `main`). You can configure comparison against a remote branch instead:
+
+```bash
+# Compare against origin/main globally
+wt config --global remote origin
+
+# Auto-fetch before list/cleanup (only works when remote is set)
+wt config --global fetch true
+
+# Override remote for a specific repository
+wt config remote upstream
+
+# View current settings
+wt config --list
+
+# See where each value comes from
+wt config --show-origin
+```
+
+### Configuration Keys
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `remote` | `""` (empty) | Remote to compare against. Empty = local comparison |
+| `fetch` | `false` | Auto-fetch before list/cleanup (only applies when remote is set) |
+
+### Configuration File Structure
+
+```yaml
+# ~/.config/wt/config.yaml
+
+# Global settings
+remote: origin      # Compare to origin/branch
+fetch: true         # Fetch before comparing
+
+# Per-repo overrides (keyed by repo path)
+repos:
+  /path/to/repo1:
+    remote: upstream    # This repo compares to upstream/branch
+  /path/to/repo2:
+    remote: ""          # This repo uses local comparison
+    fetch: false
+```
 
 ## Example Hooks
 
