@@ -4,3 +4,5 @@ hooks:
   post_create:
     - script: ./scripts/copy-node-modules.sh
     - script: ./scripts/setup-ports.sh
+  info:
+    - script: ./scripts/show-info.sh

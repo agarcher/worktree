@@ -1,6 +1,7 @@
 package hooks
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -111,4 +112,62 @@ func RunPostDelete(cfg *config.Config, env *Env) error {
 	}
 	fmt.Println("Running post-delete hooks...")
 	return Run(cfg.Hooks.PostDelete, env, env.RepoRoot)
+}
+
+// RunInfo runs info hooks and returns captured stdout
+func RunInfo(cfg *config.Config, env *Env) (string, error) {
+	if len(cfg.Hooks.Info) == 0 {
+		return "", nil
+	}
+	return runAndCapture(cfg.Hooks.Info, env, env.Path)
+}
+
+// runAndCapture executes hooks and captures their stdout
+func runAndCapture(entries []config.HookEntry, env *Env, workDir string) (string, error) {
+	var output bytes.Buffer
+	for _, entry := range entries {
+		out, err := runHookCapture(entry, env, workDir)
+		if err != nil {
+			return "", err
+		}
+		output.WriteString(out)
+	}
+	return output.String(), nil
+}
+
+// runHookCapture executes a single hook and captures its stdout
+func runHookCapture(entry config.HookEntry, env *Env, workDir string) (string, error) {
+	scriptPath := entry.Script
+
+	// Resolve relative paths from repo root
+	if !filepath.IsAbs(scriptPath) {
+		scriptPath = filepath.Join(env.RepoRoot, scriptPath)
+	}
+
+	// Check if script exists
+	if _, err := os.Stat(scriptPath); err != nil {
+		return "", fmt.Errorf("hook script not found: %s", scriptPath)
+	}
+
+	// Build the command
+	cmd := exec.Command("/bin/bash", scriptPath)
+	cmd.Dir = workDir
+
+	// Capture stdout, let stderr go to os.Stderr
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = os.Stderr
+
+	// Set environment variables
+	cmd.Env = append(os.Environ(), env.ToEnvVars()...)
+
+	// Add custom environment variables from hook config
+	for k, v := range entry.Env {
+		cmd.Env = append(cmd.Env, k+"="+v)
+	}
+
+	if err := cmd.Run(); err != nil {
+		return "", err
+	}
+	return stdout.String(), nil
 }
