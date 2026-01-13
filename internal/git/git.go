@@ -208,6 +208,36 @@ func DeleteBranch(repoRoot, branchName string, force bool) error {
 	return cmd.Run()
 }
 
+// FetchRemote fetches updates from the specified remote
+func FetchRemote(repoRoot, remote string) error {
+	cmd := exec.Command("git", "fetch", remote)
+	cmd.Dir = repoRoot
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// FetchRemoteQuiet fetches from the specified remote without printing output
+func FetchRemoteQuiet(repoRoot, remote string) error {
+	cmd := exec.Command("git", "fetch", remote)
+	cmd.Dir = repoRoot
+	return cmd.Run()
+}
+
+// RefExists checks if a git ref (branch, tag, or remote ref) exists
+func RefExists(repoRoot, ref string) bool {
+	cmd := exec.Command("git", "rev-parse", "--verify", "--quiet", ref)
+	cmd.Dir = repoRoot
+	return cmd.Run() == nil
+}
+
+// UpdateRemoteHead updates refs/remotes/<remote>/HEAD from the remote
+func UpdateRemoteHead(repoRoot, remote string) error {
+	cmd := exec.Command("git", "remote", "set-head", remote, "--auto")
+	cmd.Dir = repoRoot
+	return cmd.Run()
+}
+
 // GetDefaultBranch returns the default branch name (main or master)
 func GetDefaultBranch(repoRoot string) (string, error) {
 	// Try to get the default branch from remote

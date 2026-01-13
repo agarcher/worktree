@@ -1,0 +1,232 @@
+package userconfig
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"gopkg.in/yaml.v3"
+)
+
+const (
+	// ConfigDir is the directory under $HOME for wt config
+	ConfigDir = ".config/wt"
+	// ConfigFile is the name of the user config file
+	ConfigFile = "config.yaml"
+)
+
+// RepoConfig holds per-repository user settings
+type RepoConfig struct {
+	Remote string `yaml:"remote,omitempty"`
+	Fetch  *bool  `yaml:"fetch,omitempty"` // pointer to distinguish unset from false
+}
+
+// UserConfig holds user-level configuration
+type UserConfig struct {
+	// Remote is the default remote to compare against (empty = local comparison)
+	Remote string `yaml:"remote,omitempty"`
+	// Fetch enables auto-fetch before list/cleanup (only applies when remote is set)
+	Fetch bool `yaml:"fetch,omitempty"`
+	// Repos holds per-repository overrides keyed by absolute repo path
+	Repos map[string]RepoConfig `yaml:"repos,omitempty"`
+}
+
+// DefaultUserConfig returns a config with default values
+func DefaultUserConfig() *UserConfig {
+	return &UserConfig{
+		Remote: "",    // default to local comparison
+		Fetch:  false, // no automatic network calls
+		Repos:  make(map[string]RepoConfig),
+	}
+}
+
+// GetConfigPath returns the full path to the user config file
+func GetConfigPath() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("could not determine home directory: %w", err)
+	}
+	return filepath.Join(homeDir, ConfigDir, ConfigFile), nil
+}
+
+// Load reads user config from ~/.config/wt/config.yaml
+// Returns default config if file doesn't exist
+func Load() (*UserConfig, error) {
+	configPath, err := GetConfigPath()
+	if err != nil {
+		return DefaultUserConfig(), err
+	}
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return DefaultUserConfig(), nil
+		}
+		return DefaultUserConfig(), err
+	}
+
+	cfg := DefaultUserConfig()
+	if err := yaml.Unmarshal(data, cfg); err != nil {
+		return DefaultUserConfig(), fmt.Errorf("failed to parse config: %w", err)
+	}
+
+	// Ensure Repos map is initialized
+	if cfg.Repos == nil {
+		cfg.Repos = make(map[string]RepoConfig)
+	}
+
+	return cfg, nil
+}
+
+// Save writes user config to ~/.config/wt/config.yaml
+func Save(cfg *UserConfig) error {
+	configPath, err := GetConfigPath()
+	if err != nil {
+		return err
+	}
+
+	// Ensure directory exists
+	dir := filepath.Dir(configPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create config directory: %w", err)
+	}
+
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	if err := os.WriteFile(configPath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write config: %w", err)
+	}
+
+	return nil
+}
+
+// GetRemoteForRepo returns the effective remote for a given repo path
+// Returns per-repo override if set, otherwise global default
+func (c *UserConfig) GetRemoteForRepo(repoPath string) string {
+	if repoConfig, ok := c.Repos[repoPath]; ok && repoConfig.Remote != "" {
+		return repoConfig.Remote
+	}
+	return c.Remote
+}
+
+// GetFetchForRepo returns the effective fetch setting for a given repo path
+// Returns per-repo override if set, otherwise global default
+func (c *UserConfig) GetFetchForRepo(repoPath string) bool {
+	if repoConfig, ok := c.Repos[repoPath]; ok && repoConfig.Fetch != nil {
+		return *repoConfig.Fetch
+	}
+	return c.Fetch
+}
+
+// SetGlobal sets a global config value
+func (c *UserConfig) SetGlobal(key, value string) error {
+	switch key {
+	case "remote":
+		c.Remote = value
+	case "fetch":
+		c.Fetch = value == "true"
+	default:
+		return fmt.Errorf("unknown config key: %s", key)
+	}
+	return nil
+}
+
+// SetForRepo sets a per-repo config value
+func (c *UserConfig) SetForRepo(repoPath, key, value string) error {
+	if c.Repos == nil {
+		c.Repos = make(map[string]RepoConfig)
+	}
+
+	repoConfig := c.Repos[repoPath]
+
+	switch key {
+	case "remote":
+		repoConfig.Remote = value
+	case "fetch":
+		fetchVal := value == "true"
+		repoConfig.Fetch = &fetchVal
+	default:
+		return fmt.Errorf("unknown config key: %s", key)
+	}
+
+	c.Repos[repoPath] = repoConfig
+	return nil
+}
+
+// UnsetForRepo removes a per-repo config value
+func (c *UserConfig) UnsetForRepo(repoPath, key string) error {
+	if c.Repos == nil {
+		return nil
+	}
+
+	repoConfig, ok := c.Repos[repoPath]
+	if !ok {
+		return nil
+	}
+
+	switch key {
+	case "remote":
+		repoConfig.Remote = ""
+	case "fetch":
+		repoConfig.Fetch = nil
+	default:
+		return fmt.Errorf("unknown config key: %s", key)
+	}
+
+	// If repo config is now empty, remove it entirely
+	if repoConfig.Remote == "" && repoConfig.Fetch == nil {
+		delete(c.Repos, repoPath)
+	} else {
+		c.Repos[repoPath] = repoConfig
+	}
+
+	return nil
+}
+
+// GetGlobal returns a global config value as a string
+func (c *UserConfig) GetGlobal(key string) (string, error) {
+	switch key {
+	case "remote":
+		return c.Remote, nil
+	case "fetch":
+		if c.Fetch {
+			return "true", nil
+		}
+		return "false", nil
+	default:
+		return "", fmt.Errorf("unknown config key: %s", key)
+	}
+}
+
+// GetForRepo returns a per-repo config value as a string
+// Returns empty string and false if not set
+func (c *UserConfig) GetForRepo(repoPath, key string) (string, bool) {
+	repoConfig, ok := c.Repos[repoPath]
+	if !ok {
+		return "", false
+	}
+
+	switch key {
+	case "remote":
+		if repoConfig.Remote != "" {
+			return repoConfig.Remote, true
+		}
+	case "fetch":
+		if repoConfig.Fetch != nil {
+			if *repoConfig.Fetch {
+				return "true", true
+			}
+			return "false", true
+		}
+	}
+
+	return "", false
+}
+
+// ValidKeys returns the list of valid configuration keys
+func ValidKeys() []string {
+	return []string{"remote", "fetch"}
+}

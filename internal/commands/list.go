@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/agarcher/wt/internal/config"
 	"github.com/agarcher/wt/internal/git"
 	"github.com/spf13/cobra"
 )
@@ -50,43 +49,31 @@ type worktreeInfo struct {
 }
 
 func runList(cmd *cobra.Command, args []string) error {
-	// Find the main repository root
-	repoRoot, err := config.GetMainRepoRoot()
+	// Setup comparison context (prints repo root, fetches if configured, prints comparison ref)
+	setup, err := SetupCompare(cmd)
 	if err != nil {
-		return fmt.Errorf("not in a git repository: %w", err)
-	}
-
-	// Load configuration
-	cfg, err := config.Load(repoRoot)
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		return err
 	}
 
 	// Get all worktrees
-	worktrees, err := git.ListWorktrees(repoRoot)
+	worktrees, err := git.ListWorktrees(setup.RepoRoot)
 	if err != nil {
 		return fmt.Errorf("failed to list worktrees: %w", err)
 	}
 
-	// Get main branch for comparisons
-	mainBranch, err := git.GetDefaultBranch(repoRoot)
-	if err != nil {
-		mainBranch = "main" // Fallback
-	}
-
 	// Get merged branches cache for efficiency
-	mergedCache, _ := git.GetMergedBranches(repoRoot, mainBranch)
+	mergedCache, _ := git.GetMergedBranches(setup.RepoRoot, setup.ComparisonRef)
 
 	// Get current directory to highlight current worktree
 	cwd, _ := os.Getwd()
-	worktreesDir := filepath.Join(repoRoot, cfg.WorktreeDir)
+	worktreesDir := filepath.Join(setup.RepoRoot, setup.Config.WorktreeDir)
 
 	// Collect managed worktrees (excluding main repo)
 	var managedWorktrees []worktreeInfo
 
 	for _, wt := range worktrees {
 		// Skip the main worktree
-		if wt.Path == repoRoot {
+		if wt.Path == setup.RepoRoot {
 			continue
 		}
 
@@ -96,13 +83,13 @@ func runList(cmd *cobra.Command, args []string) error {
 		}
 
 		// Get worktree name
-		name := git.GetWorktreeName(repoRoot, wt.Path, cfg.WorktreeDir)
+		name := git.GetWorktreeName(setup.RepoRoot, wt.Path, setup.Config.WorktreeDir)
 
 		// Get full worktree status
-		status, _ := git.GetWorktreeStatus(repoRoot, wt.Path, name, wt.Branch, mainBranch, mergedCache)
+		status, _ := git.GetWorktreeStatus(setup.RepoRoot, wt.Path, name, wt.Branch, setup.ComparisonRef, mergedCache)
 
 		// Get worktree index
-		idx, _ := git.GetWorktreeIndex(repoRoot, name)
+		idx, _ := git.GetWorktreeIndex(setup.RepoRoot, name)
 
 		// Check if this is the current worktree (exact match or inside it)
 		currentMarker := "  "

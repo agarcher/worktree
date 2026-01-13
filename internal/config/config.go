@@ -22,6 +22,7 @@ type Config struct {
 	Version       int          `yaml:"version"`
 	WorktreeDir   string       `yaml:"worktree_dir"`
 	BranchPattern string       `yaml:"branch_pattern"`
+	DefaultBranch string       `yaml:"default_branch"` // Branch to compare against (e.g., "main", "develop")
 	Hooks         HooksConfig  `yaml:"hooks"`
 	Index         IndexConfig  `yaml:"index"`
 }
