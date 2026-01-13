@@ -1157,6 +1157,41 @@ func TestConfigFetchWithoutRemoteWarning(t *testing.T) {
 	}
 }
 
+func TestConfigGlobalUnset(t *testing.T) {
+	repoRoot, _, cleanup := setupTestRepoWithIsolatedHome(t)
+	defer cleanup()
+
+	// Change to test repo
+	oldWd, _ := os.Getwd()
+	_ = os.Chdir(repoRoot)
+	defer func() { _ = os.Chdir(oldWd) }()
+
+	// Set a global value
+	_, _, err := executeCommand("config", "--global", "remote", "origin")
+	if err != nil {
+		t.Fatalf("config set failed: %v", err)
+	}
+
+	// Verify it's set
+	stdout, _, _ := executeCommand("config", "--global", "remote")
+	if !strings.Contains(stdout, "origin") {
+		t.Fatalf("expected 'origin' before unset, got: %s", stdout)
+	}
+
+	// Unset it globally
+	_, _, err = executeCommand("config", "--global", "--unset", "remote")
+	if err != nil {
+		t.Fatalf("config --global --unset failed: %v", err)
+	}
+
+	// Verify it's unset (should be empty)
+	stdout, _, _ = executeCommand("config", "--global", "remote")
+	stdout = strings.TrimSpace(stdout)
+	if stdout != "" {
+		t.Errorf("expected empty remote after unset, got: %q", stdout)
+	}
+}
+
 func TestListShowsRepoAndComparisonRef(t *testing.T) {
 	repoRoot, _, cleanup := setupTestRepoWithIsolatedHome(t)
 	defer cleanup()

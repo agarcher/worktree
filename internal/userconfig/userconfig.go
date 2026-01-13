@@ -79,6 +79,7 @@ func Load() (*UserConfig, error) {
 }
 
 // Save writes user config to ~/.config/wt/config.yaml
+// Uses atomic write (temp file + rename) to prevent corruption if interrupted.
 func Save(cfg *UserConfig) error {
 	configPath, err := GetConfigPath()
 	if err != nil {
@@ -96,10 +97,36 @@ func Save(cfg *UserConfig) error {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
 
-	if err := os.WriteFile(configPath, data, 0644); err != nil {
+	// Write to temp file first for atomic save
+	tempFile, err := os.CreateTemp(dir, ".config.yaml.tmp.*")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tempPath := tempFile.Name()
+
+	// Clean up temp file on any error
+	success := false
+	defer func() {
+		if !success {
+			_ = os.Remove(tempPath)
+		}
+	}()
+
+	if _, err := tempFile.Write(data); err != nil {
+		_ = tempFile.Close()
 		return fmt.Errorf("failed to write config: %w", err)
 	}
 
+	if err := tempFile.Close(); err != nil {
+		return fmt.Errorf("failed to close temp file: %w", err)
+	}
+
+	// Atomic rename
+	if err := os.Rename(tempPath, configPath); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
+	}
+
+	success = true
 	return nil
 }
 
@@ -128,6 +155,19 @@ func (c *UserConfig) SetGlobal(key, value string) error {
 		c.Remote = value
 	case "fetch":
 		c.Fetch = value == "true"
+	default:
+		return fmt.Errorf("unknown config key: %s", key)
+	}
+	return nil
+}
+
+// UnsetGlobal clears a global config value to its default
+func (c *UserConfig) UnsetGlobal(key string) error {
+	switch key {
+	case "remote":
+		c.Remote = ""
+	case "fetch":
+		c.Fetch = false
 	default:
 		return fmt.Errorf("unknown config key: %s", key)
 	}

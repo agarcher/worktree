@@ -148,6 +148,37 @@ func TestUnsetForRepo(t *testing.T) {
 	}
 }
 
+func TestUnsetGlobal(t *testing.T) {
+	cfg := &UserConfig{
+		Remote: "origin",
+		Fetch:  true,
+	}
+
+	// Unset remote
+	if err := cfg.UnsetGlobal("remote"); err != nil {
+		t.Errorf("UnsetGlobal failed: %v", err)
+	}
+	if cfg.Remote != "" {
+		t.Errorf("expected remote to be empty, got %q", cfg.Remote)
+	}
+	if cfg.Fetch != true {
+		t.Errorf("expected fetch to still be true")
+	}
+
+	// Unset fetch
+	if err := cfg.UnsetGlobal("fetch"); err != nil {
+		t.Errorf("UnsetGlobal failed: %v", err)
+	}
+	if cfg.Fetch != false {
+		t.Errorf("expected fetch to be false, got %v", cfg.Fetch)
+	}
+
+	// Invalid key
+	if err := cfg.UnsetGlobal("invalid"); err == nil {
+		t.Error("expected error for invalid key")
+	}
+}
+
 func TestLoadAndSave(t *testing.T) {
 	// Create temp directory for test
 	tmpDir, err := os.MkdirTemp("", "wt-userconfig-test")

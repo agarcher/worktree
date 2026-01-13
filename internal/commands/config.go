@@ -122,7 +122,10 @@ func printConfigShowOrigin(cmd *cobra.Command, cfg *userconfig.UserConfig) error
 	// Get current repo path for context
 	repoRoot, _ := config.GetMainRepoRoot()
 
-	configPath, _ := userconfig.GetConfigPath()
+	configPath, err := userconfig.GetConfigPath()
+	if err != nil {
+		configPath = "(unknown)"
+	}
 
 	// Show effective values for current repo
 	if repoRoot != "" {
@@ -243,15 +246,22 @@ func unsetConfig(cmd *cobra.Command, cfg *userconfig.UserConfig, key string) err
 		return fmt.Errorf("unknown config key: %s\nValid keys: %s", key, strings.Join(userconfig.ValidKeys(), ", "))
 	}
 
-	// Get current repo
-	repoRoot, err := config.GetMainRepoRoot()
-	if err != nil {
-		return fmt.Errorf("not in a git repository")
-	}
+	if configGlobal {
+		// Unset global value
+		if err := cfg.UnsetGlobal(key); err != nil {
+			return err
+		}
+	} else {
+		// Get current repo
+		repoRoot, err := config.GetMainRepoRoot()
+		if err != nil {
+			return fmt.Errorf("not in a git repository (use --global to unset global config)")
+		}
 
-	// Unset per-repo value
-	if err := cfg.UnsetForRepo(repoRoot, key); err != nil {
-		return err
+		// Unset per-repo value
+		if err := cfg.UnsetForRepo(repoRoot, key); err != nil {
+			return err
+		}
 	}
 
 	// Save config
