@@ -160,24 +160,21 @@ wt() {
   # Commands that need cd handling
   case "$1" in
     create|delete|cleanup)
-      local output
-      output=$(command wt "$@" 2>&1)
-      local exit_code=$?
+      # Use temp file to capture output while streaming in real-time
+      local tmpfile=$(mktemp)
+      trap "rm -f '$tmpfile'" EXIT
+      command wt "$@" 2>&1 | tee "$tmpfile"
+      local exit_code=${PIPESTATUS[0]:-${pipestatus[1]}}
 
       if [[ $exit_code -eq 0 ]]; then
-        # Print all but last line
-        echo "$output" | sed '$d'
         # cd to path on last line if it's a directory
-        local target=$(echo "$output" | tail -1)
+        local target=$(tail -1 "$tmpfile")
         if [[ -d "$target" ]]; then
           cd "$target"
-        else
-          # Last line wasn't a directory, print it too
-          echo "$target"
         fi
-      else
-        echo "$output"
       fi
+      rm -f "$tmpfile"
+      trap - EXIT
       return $exit_code
       ;;
     cd)
@@ -349,21 +346,21 @@ wt() {
 
   case "$1" in
     create|delete|cleanup)
-      local output
-      output=$(command wt "$@" 2>&1)
-      local exit_code=$?
+      # Use temp file to capture output while streaming in real-time
+      local tmpfile=$(mktemp)
+      trap "rm -f '$tmpfile'" EXIT
+      command wt "$@" 2>&1 | tee "$tmpfile"
+      local exit_code=${PIPESTATUS[0]}
 
       if [[ $exit_code -eq 0 ]]; then
-        echo "$output" | sed '$d'
-        local target=$(echo "$output" | tail -1)
+        # cd to path on last line if it's a directory
+        local target=$(tail -1 "$tmpfile")
         if [[ -d "$target" ]]; then
           cd "$target"
-        else
-          echo "$target"
         fi
-      else
-        echo "$output"
       fi
+      rm -f "$tmpfile"
+      trap - EXIT
       return $exit_code
       ;;
     cd)
@@ -499,20 +496,19 @@ function wt
 
   switch $argv[1]
     case create delete cleanup
-      set -l output (command wt $argv 2>&1)
-      set -l exit_code $status
+      # Use temp file to capture output while streaming in real-time
+      set -l tmpfile (mktemp)
+      command wt $argv 2>&1 | tee "$tmpfile"
+      set -l exit_code $pipestatus[1]
 
       if test $exit_code -eq 0
-        echo "$output" | sed '$d'
-        set -l target (echo "$output" | tail -1)
+        # cd to path on last line if it's a directory
+        set -l target (tail -1 "$tmpfile")
         if test -d "$target"
           cd "$target"
-        else
-          echo "$target"
         end
-      else
-        echo "$output"
       end
+      rm -f "$tmpfile"
       return $exit_code
 
     case cd

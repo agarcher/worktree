@@ -84,6 +84,7 @@ func RunPreCreate(cfg *config.Config, env *Env) error {
 		return nil
 	}
 	fmt.Println("Running pre-create hooks...")
+	_ = os.Stdout.Sync() // Flush so message appears before hook output
 	return Run(cfg.Hooks.PreCreate, env, env.RepoRoot)
 }
 
@@ -93,6 +94,7 @@ func RunPostCreate(cfg *config.Config, env *Env) error {
 		return nil
 	}
 	fmt.Println("Running post-create hooks...")
+	_ = os.Stdout.Sync() // Flush so message appears before hook output
 	return Run(cfg.Hooks.PostCreate, env, env.Path)
 }
 
@@ -102,6 +104,7 @@ func RunPreDelete(cfg *config.Config, env *Env) error {
 		return nil
 	}
 	fmt.Println("Running pre-delete hooks...")
+	_ = os.Stdout.Sync() // Flush so message appears before hook output
 	return Run(cfg.Hooks.PreDelete, env, env.Path)
 }
 
@@ -111,6 +114,7 @@ func RunPostDelete(cfg *config.Config, env *Env) error {
 		return nil
 	}
 	fmt.Println("Running post-delete hooks...")
+	_ = os.Stdout.Sync() // Flush so message appears before hook output
 	return Run(cfg.Hooks.PostDelete, env, env.RepoRoot)
 }
 
