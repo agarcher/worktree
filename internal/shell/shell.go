@@ -160,24 +160,21 @@ wt() {
   # Commands that need cd handling
   case "$1" in
     create|delete|cleanup)
-      local output
-      output=$(command wt "$@" 2>&1)
+      # Use temp file to communicate cd target from Go
+      local cdfile=$(mktemp)
+      trap "rm -f '$cdfile'" EXIT
+      WT_CD_FILE="$cdfile" command wt "$@"
       local exit_code=$?
 
-      if [[ $exit_code -eq 0 ]]; then
-        # Print all but last line
-        echo "$output" | sed '$d'
-        # cd to path on last line if it's a directory
-        local target=$(echo "$output" | tail -1)
+      # cd to path if one was written
+      if [[ -s "$cdfile" ]]; then
+        local target=$(cat "$cdfile")
         if [[ -d "$target" ]]; then
           cd "$target"
-        else
-          # Last line wasn't a directory, print it too
-          echo "$target"
         fi
-      else
-        echo "$output"
       fi
+      rm -f "$cdfile"
+      trap - EXIT
       return $exit_code
       ;;
     cd)
@@ -349,21 +346,21 @@ wt() {
 
   case "$1" in
     create|delete|cleanup)
-      local output
-      output=$(command wt "$@" 2>&1)
+      # Use temp file to communicate cd target from Go
+      local cdfile=$(mktemp)
+      trap "rm -f '$cdfile'" EXIT
+      WT_CD_FILE="$cdfile" command wt "$@"
       local exit_code=$?
 
-      if [[ $exit_code -eq 0 ]]; then
-        echo "$output" | sed '$d'
-        local target=$(echo "$output" | tail -1)
+      # cd to path if one was written
+      if [[ -s "$cdfile" ]]; then
+        local target=$(cat "$cdfile")
         if [[ -d "$target" ]]; then
           cd "$target"
-        else
-          echo "$target"
         fi
-      else
-        echo "$output"
       fi
+      rm -f "$cdfile"
+      trap - EXIT
       return $exit_code
       ;;
     cd)
@@ -499,20 +496,19 @@ function wt
 
   switch $argv[1]
     case create delete cleanup
-      set -l output (command wt $argv 2>&1)
+      # Use temp file to communicate cd target from Go
+      set -l cdfile (mktemp)
+      WT_CD_FILE="$cdfile" command wt $argv
       set -l exit_code $status
 
-      if test $exit_code -eq 0
-        echo "$output" | sed '$d'
-        set -l target (echo "$output" | tail -1)
+      # cd to path if one was written
+      if test -s "$cdfile"
+        set -l target (cat "$cdfile")
         if test -d "$target"
           cd "$target"
-        else
-          echo "$target"
         end
-      else
-        echo "$output"
       end
+      rm -f "$cdfile"
       return $exit_code
 
     case cd
