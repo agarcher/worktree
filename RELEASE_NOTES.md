@@ -1,1 +1,1 @@
-Add wt info command with hook support, wt config command for managing settings, and remote comparison mode with auto-fetch. Fix cleanup command hang issue.
+Fix hooks appearing hung due to buffered output. Add safety checks to prevent deleting worktrees with uncommitted or unmerged changes. Improve shell wrapper communication using WT_CD_FILE env var.
