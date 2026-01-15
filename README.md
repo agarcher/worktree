@@ -303,8 +303,14 @@ wt config --global remote origin
 # Auto-fetch before list/cleanup (only works when remote is set)
 wt config --global fetch true
 
+# Set minimum time between fetches (default: 5m)
+wt config --global fetch_interval 10m
+
 # Override remote for a specific repository
 wt config remote upstream
+
+# Disable fetch caching for current repo (always fetch)
+wt config fetch_interval 0
 
 # View current settings
 wt config --list
@@ -319,6 +325,7 @@ wt config --show-origin
 |-----|---------|-------------|
 | `remote` | `""` (empty) | Remote to compare against. Empty = local comparison |
 | `fetch` | `false` | Auto-fetch before list/cleanup (only applies when remote is set) |
+| `fetch_interval` | `5m` | Minimum time between fetches (e.g., `5m`, `1h`, `30s`). Set to `0` to always fetch |
 
 ### Configuration File Structure
 
@@ -326,16 +333,18 @@ wt config --show-origin
 # ~/.config/wt/config.yaml
 
 # Global settings
-remote: origin      # Compare to origin/branch
-fetch: true         # Fetch before comparing
+remote: origin         # Compare to origin/branch
+fetch: true            # Fetch before comparing
+fetch_interval: 5m     # Minimum time between fetches
 
 # Per-repo overrides (keyed by repo path)
 repos:
   /path/to/repo1:
-    remote: upstream    # This repo compares to upstream/branch
+    remote: upstream       # This repo compares to upstream/branch
   /path/to/repo2:
-    remote: ""          # This repo uses local comparison
+    remote: ""             # This repo uses local comparison
     fetch: false
+    fetch_interval: 0      # Always fetch for this repo
 ```
 
 ## Example Hooks
