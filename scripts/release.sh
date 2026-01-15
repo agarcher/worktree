@@ -17,22 +17,24 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 VERSION_FILE="${REPO_ROOT}/VERSION"
 
 usage() {
-    echo "Usage: $0 <major|minor|patch> \"Release notes\""
+    echo "Usage: NOTES=\"Release notes\" $0 <major|minor|patch>"
     echo ""
     echo "Examples:"
-    echo "  $0 patch \"Fix bug in cleanup command\""
-    echo "  $0 minor \"Add new feature X\""
-    echo "  $0 major \"Breaking changes to config format\""
+    echo "  NOTES=\"Fix bug in cleanup command\" $0 patch"
+    echo "  NOTES=\"Add new feature X\" $0 minor"
+    echo "  NOTES=\"Breaking changes to config format\" $0 major"
+    echo ""
+    echo "Or via make:"
+    echo "  NOTES=\"Fix bug\" make release patch"
     exit 1
 }
 
-if [[ $# -lt 2 ]]; then
+if [[ $# -lt 1 ]]; then
     usage
 fi
 
 BUMP_TYPE="$1"
-shift
-RELEASE_NOTES="$*"
+RELEASE_NOTES="${NOTES:-}"
 
 if [[ ! "$BUMP_TYPE" =~ ^(major|minor|patch)$ ]]; then
     echo "Error: First argument must be 'major', 'minor', or 'patch'"
