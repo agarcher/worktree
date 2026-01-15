@@ -58,9 +58,9 @@ run: build
 	./$(BUILD_DIR)/$(BINARY)
 
 # Create a release (bump version, tag, push)
-# Usage: make release patch "Fix bug"
-#        make release minor "Add feature"
-#        make release major "Breaking change"
+# Usage: NOTES="Fix bug" make release patch
+#        NOTES="Add feature" make release minor
+#        NOTES="Breaking change" make release major
 release:
 	@./scripts/release.sh $(filter-out $@,$(MAKECMDGOALS))
 
@@ -78,5 +78,5 @@ help:
 	@echo "  test        - Run tests"
 	@echo "  lint        - Run linters"
 	@echo "  tidy        - Run go mod tidy"
-	@echo "  release     - Create a release: make release <major|minor|patch> \"notes\""
+	@echo "  release     - Create a release: NOTES=\"notes\" make release <major|minor|patch>"
 	@echo "  help        - Show this help"
