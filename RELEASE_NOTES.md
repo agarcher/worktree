@@ -1,1 +1,1 @@
-Fix hooks appearing hung due to buffered output. Add safety checks to prevent deleting worktrees with uncommitted or unmerged changes. Improve shell wrapper communication using WT_CD_FILE env var.
+Add fetch_interval configuration option to control fetch frequency and prevent repeated fetches. The fetch config option has been removed
