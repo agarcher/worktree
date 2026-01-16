@@ -5,6 +5,8 @@
 
 A CLI for managing git worktrees with lifecycle hooks. Create isolated, fully testable environments for running multiple LLM coding agents in parallel.
 
+https://github.com/user-attachments/assets/7ec0fffa-b39c-45c1-98f3-68a1a2f91cf3
+
 ## Installation
 
 ### Homebrew (macOS/Linux)
