@@ -9,5 +9,24 @@ if [ -z "$WT_INDEX" ]; then
     exit 0
 fi
 
+# ANSI codes for bold
+BOLD='\033[1m'
+RESET='\033[0m'
+
+# Check if a port is listening
+is_port_running() {
+    lsof -i ":$1" >/dev/null 2>&1
+}
+
+# Format status with optional bold
+format_status() {
+    local port=$1
+    if is_port_running "$port"; then
+        echo -e "(${BOLD}running${RESET})"
+    else
+        echo "(stopped)"
+    fi
+}
+
 PORT=$((5173 + WT_INDEX * 10))
-echo "URL: http://localhost:$PORT"
+echo -e "URL: http://localhost:$PORT $(format_status "$PORT")"
