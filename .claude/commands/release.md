@@ -20,7 +20,7 @@ Prepare and execute a release for the wt project.
    - Proposed release notes (concise, 1-3 sentences)
    - Recommended bump type with reasoning
 6. Ask the user to approve or modify the release notes and bump type
-7. Upon approval, run: `make release <bump-type> "<release-notes>"`
+7. Upon approval, run: `NOTES="<release-notes>" make release <bump-type>`
 
 ## Important
 
