@@ -1,1 +1,1 @@
-Add fetch_interval configuration option to control fetch frequency and prevent repeated fetches. The fetch config option has been removed; use fetch_interval: 0 for always or fetch_interval: never for never. Restructure documentation with dedicated usage and hooks guides.
+Fix config parsing errors for malformed user config and improve release script handling of special characters. Add server status display to vite-port-demo hook.
